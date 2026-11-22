@@ -14,13 +14,13 @@ type Props = {
 export function CaptionStylePicker({ value, onChange }: Props) {
   return (
     <fieldset>
-      <legend className="muted mb-2 text-xs font-semibold uppercase tracking-wide">Caption style</legend>
+      <legend className="muted mb-2 text-xs font-medium uppercase tracking-wider">Caption style</legend>
       <div className="grid grid-cols-3 gap-2">
         {STYLES.map((style) => (
           <label
             key={style.id}
-            className={`flex min-h-12 cursor-pointer flex-col items-center justify-center rounded-lg border p-2 text-xs ${
-              value === style.id ? 'border-[var(--accent)] bg-[var(--surface-2)]' : 'border-[var(--border)]'
+            className={`flex min-h-12 cursor-pointer flex-col items-center justify-center rounded-2xl border p-2 text-xs ${
+              value === style.id ? 'border-[var(--accent)] bg-[var(--chip)]' : 'border-[var(--divider)]'
             }`}
           >
             <input
@@ -31,7 +31,7 @@ export function CaptionStylePicker({ value, onChange }: Props) {
               onChange={() => onChange(style.id)}
             />
             <span
-              className={`text-lg font-black ${style.id === 'minimal' ? 'font-normal' : ''} ${
+              className={`text-lg font-semibold ${style.id === 'minimal' ? 'font-normal' : ''} ${
                 style.id === 'karaoke' ? 'text-[#ffd23f]' : ''
               }`}
             >

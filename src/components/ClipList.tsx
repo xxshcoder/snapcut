@@ -20,8 +20,8 @@ export function ClipList({ clips, selectedId, selectedIds, renderProgress, onSel
     <section aria-label="Suggested clips">
       <div className="mb-2 flex items-center justify-between gap-2">
         <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-wide text-[var(--accent-2)]">Step 2 · Review</p>
-          <h2 className="truncate text-sm font-bold">Suggested clips ({clips.length})</h2>
+          <p className="muted text-xs font-medium uppercase tracking-wider">Step 2 · Review</p>
+          <h2 className="truncate text-sm font-semibold">Suggested clips ({clips.length})</h2>
         </div>
         <span className="muted hidden text-xs sm:inline">Tap a clip to preview · tick to export</span>
       </div>

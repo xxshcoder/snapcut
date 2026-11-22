@@ -1,4 +1,5 @@
 import { useRef, useState, type DragEvent } from 'react';
+import { Icon } from './Icon';
 import { LIMITS } from '../config';
 
 type Props = {
@@ -21,8 +22,8 @@ export function FilePicker({ disabled, isMobile, onFile }: Props) {
 
   return (
     <section
-      className={`panel flex min-h-64 flex-col items-center justify-center gap-3 border-2 border-dashed p-5 text-center ${
-        dragging ? 'border-[var(--accent)]' : 'border-[var(--border)]'
+      className={`panel flex w-full max-w-xl flex-col items-center justify-center gap-4 border-2 border-dashed p-8 text-center ${
+        dragging ? 'border-[var(--accent)]' : 'border-[#4a5078]'
       }`}
       onDragOver={(event) => {
         event.preventDefault();
@@ -32,10 +33,9 @@ export function FilePicker({ disabled, isMobile, onFile }: Props) {
       onDrop={handleDrop}
       aria-label="Choose a video file"
     >
-      <div className="text-4xl" aria-hidden="true">🎬</div>
-      <span className="rounded-full border border-[var(--border)] px-3 py-1 text-xs font-semibold uppercase tracking-wide text-[var(--accent-2)]">
-        Step 1 · Choose
-      </span>
+      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--chip)] text-[var(--accent)]">
+        <Icon name="tray" size={32} />
+      </div>
       <h2 className="text-xl font-bold">Pick a video to clip</h2>
       <p className="muted max-w-md text-sm">
         Your video stays on this device. Only compressed audio and transcript text are sent for analysis.
@@ -55,7 +55,8 @@ export function FilePicker({ disabled, isMobile, onFile }: Props) {
           event.target.value = '';
         }}
       />
-      <button className="btn btn-primary" disabled={disabled} onClick={() => inputRef.current?.click()}>
+      <button className="btn btn-primary px-6" disabled={disabled} onClick={() => inputRef.current?.click()}>
+        <Icon name="upload" size={18} />
         Choose video
       </button>
       <p className="muted text-xs">

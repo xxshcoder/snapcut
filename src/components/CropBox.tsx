@@ -114,7 +114,7 @@ export function CropBox({ crop, sourceWidth, sourceHeight, time = 0, bounds, onC
   return (
     <div ref={rootRef} className="pointer-events-none absolute inset-0" aria-label="Crop area">
       <div
-        className="pointer-events-auto absolute cursor-grab touch-none rounded-md border-2 border-[var(--accent-2)] shadow-[0_0_0_9999px_rgba(0,0,0,0.45)] active:cursor-grabbing"
+        className="pointer-events-auto absolute cursor-grab touch-none rounded-md border border-[var(--accent)] shadow-[0_0_0_9999px_rgba(0,0,0,0.35)] active:cursor-grabbing"
         style={cropStyle}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}

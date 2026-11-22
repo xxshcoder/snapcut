@@ -18,14 +18,14 @@ export function ProgressCard({ progress, onCancel }: Props) {
         <span className="muted text-xs">{eta}</span>
       </div>
       <div
-        className="h-2 w-full overflow-hidden rounded-full bg-[var(--surface-2)]"
+        className="h-2 w-full overflow-hidden rounded-full bg-[var(--chip)]"
         role="progressbar"
         aria-valuenow={value}
         aria-valuemin={0}
         aria-valuemax={100}
       >
         <div
-          className="h-full bg-gradient-to-r from-[var(--accent)] to-[var(--accent-2)] transition-[width]"
+          className="h-full bg-[var(--accent)] transition-[width]"
           style={{ width: `${value}%` }}
         />
       </div>

@@ -37,6 +37,18 @@ npx playwright test --project=chromium --reporter=list
 > Playwright Chromium 159 (`1 passed`); the export assertion produced a 9:16 MP4
 > with a ~24 s duration.
 
+### Layout regression test (T9.2a)
+
+`e2e/layout.spec.ts` loads the same mocked fixture at 1280×900, 1366×768 and
+942×620 and asserts that the editor fills the whole browser window (width and
+height equal the viewport), that the page itself cannot scroll
+(`window.scrollY/X === 0`), and that all `design.md` regions and controls are
+present (top bar, preview, timeline, properties tabs, tool rail, export button).
+It also checks that the Timeline never scrolls its own tracks and that each
+track label's top edge matches its lane. Two more tests drag the timeline trim
+handles and assert the real clip start/end values change, and trigger a notice
+to confirm it is a floating overlay that does not change the editor's height.
+
 ## Manual device matrix (T10.2)
 
 ### Devices / browsers
@@ -126,7 +138,7 @@ Fill each cell with `Pass`, `Fail`, or `Blocked (reason)`.
 | `npm run lint` | Pass |
 | `npm test` | Pass — 17 files, 137 tests |
 | `npm run build` | Pass — static `dist/`, PWA service worker generated |
-| `npx playwright test --reporter=list` | Pass — 1 smoke test |
+| `npx playwright test --reporter=list` | Pass — 1 export smoke test + 6 layout/interaction tests |
 | Lighthouse (production preview) | Accessibility 1.00, Best Practices 1.00, SEO 1.00; no failures |
 | PWA installability | Manifest, 192/512 icons, theme color and generated service worker verified in `dist/`; the browser tool does not expose Lighthouse's PWA category |
 | Worker `GET /health` via `wrangler dev --local` | `200 {"ok":true}` |
@@ -138,6 +150,9 @@ Fill each cell with `Pass`, `Fail`, or `Blocked (reason)`.
 | Blob download lifetime | Anchor kept 60 s and object URL 5 min so large Chrome downloads are not aborted; e2e export still passes |
 | UI usability audit | Playwright measured 1280×900 and 390×844: no horizontal overflow, all visible buttons ≥44 px, theme toggle 44×44, export button top-right, full-width clip strip, source and preview boxes equal height with content-fit widths |
 | Trim controls | Playwright verified typing a start time, dragging the end handle, and clicking the timeline all update the clip range |
+| design.md rebuild | `e2e/layout.spec.ts` verifies the editor fills 1280×900, 1366×768 and 942×620 with no page scroll, all dark-editor regions are visible, and notices float without resizing the layout |
+| Functional editor polish | Properties controls are grouped and wired to the clip; tool rail and playback actions change real state; track labels align with lanes; dragging trim handles updates clip start/end; preview and timeline fill the left column |
+| Export without ticking | Export stays enabled when no clip checkbox is ticked and exports the active clip (fallback: all clips) |
 | `npx tsc -p tsconfig.worker.json --noEmit` | Pass |
 | `npx wrangler deploy --dry-run` from `worker/` | Pass |
 | `grep` API-key names/prefixes in `dist/` | No matches |

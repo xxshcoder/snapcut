@@ -239,13 +239,14 @@ export const useAppStore = create<State>((set, get) => ({
   },
 
   renderSelected: async () => {
-    const { file, meta, clips, selectedClipIds, caps } = get();
+    const { file, meta, clips, selectedClipIds, selectedClipId, caps } = get();
     if (!file || !meta) return;
-    const chosen = clips.filter((clip) => selectedClipIds.includes(clip.id));
-    if (chosen.length === 0) {
-      set({ notice: 'Select at least one clip to export.' });
-      return;
-    }
+    // Tick marks choose a set, but never block export: with none ticked we
+    // export the clip being edited (or every clip when none is active).
+    const ticked = clips.filter((clip) => selectedClipIds.includes(clip.id));
+    const active = clips.find((clip) => clip.id === selectedClipId);
+    const chosen = ticked.length > 0 ? ticked : active ? [active] : clips;
+    if (chosen.length === 0) return;
     renderController?.abort();
     const controller = new AbortController();
     renderController = controller;

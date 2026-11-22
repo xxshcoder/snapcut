@@ -1,41 +1,56 @@
 @import 'tailwindcss';
 
+/* Design tokens from design.md */
 :root {
   color-scheme: dark;
-  --bg: #0b0b12;
-  --surface: #161621;
-  --surface-2: #20202e;
-  --border: #303042;
-  --text: #f7f7fb;
-  --muted: #a2a2b8;
-  --accent: #f44dff;
-  --accent-2: #4de2ff;
-  --danger: #ff6b6b;
+  --page-1: #1b2a40;
+  --page-2: #2f4a66;
+  --window: #0e1124;
+  --surface: #161a33;
+  --chip: #1d2240;
+  --divider: rgba(255, 255, 255, 0.08);
+  --accent: #1f6bff;
+  --accent-2: #1f6bff;
+  --text: #ffffff;
+  --muted: #8a90b0;
+  --red: #ff5c50;
+  --green: #4dff7c;
+  --yellow: #ffe27a;
+  --orange: #ff6b35;
+  --danger: #ff5c50;
+  --border-field: #3a4060;
+  --badge-bg: #b9c4ff;
+  --badge-text: #3b4bd6;
 }
 
+/* Optional light theme; design.md's default is the dark palette above. */
 :root.light {
   color-scheme: light;
-  --bg: #f6f6fa;
+  --page-1: #e8edf5;
+  --page-2: #cfd9e8;
+  --window: #f5f7fb;
   --surface: #ffffff;
-  --surface-2: #efeff6;
-  --border: #d8d8e4;
-  --text: #14141d;
-  --muted: #5d5d72;
-  --accent: #c026d3;
-  --accent-2: #0891b2;
+  --chip: #eef1f7;
+  --divider: rgba(20, 28, 50, 0.1);
+  --text: #14182a;
+  --muted: #6b7391;
+  --border-field: #c7cedd;
 }
 
 html,
 body,
 #root {
-  min-height: 100%;
+  height: 100%;
+  overflow: hidden;
 }
 
 body {
   margin: 0;
-  background: var(--bg);
+  background: linear-gradient(135deg, var(--page-1), var(--page-2));
   color: var(--text);
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-family: Inter, Poppins, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-weight: 500;
+  font-size: 14px;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -49,47 +64,162 @@ button:focus-visible,
 input:focus-visible,
 textarea:focus-visible,
 [tabindex]:focus-visible {
-  outline: 2px solid var(--accent-2);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
+/* Condensed display font for the video text overlay. */
+.font-overlay {
+  font-family: Haettenschweiler, Anton, Impact, 'Arial Narrow', sans-serif;
+  font-stretch: condensed;
+  text-transform: uppercase;
+}
+
+.font-script {
+  font-family: 'Brush Script MT', 'Segoe Script', 'Snell Roundhand', cursive;
+}
+
 @utility panel {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 1rem;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 55%), var(--surface);
+  border: 1px solid var(--divider);
+  border-radius: 28px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
 }
 
-@utility btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.4rem;
-  min-height: 44px;
-  padding: 0.55rem 0.9rem;
-  border-radius: 0.75rem;
-  border: 1px solid var(--border);
-  background: var(--surface-2);
-  color: var(--text);
-  font-weight: 600;
-  cursor: pointer;
+@utility chip {
+  background: var(--chip);
+  border-radius: 16px;
 }
 
-@utility btn-primary {
-  background: linear-gradient(120deg, var(--accent), #7c3aed);
-  border-color: transparent;
-  color: white;
+@utility divider {
+  height: 1px;
+  background: var(--divider);
 }
 
 @utility muted {
   color: var(--muted);
 }
 
+@utility btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  padding: 0.5rem 1.1rem;
+  border-radius: 9999px;
+  border: 1px solid var(--divider);
+  background: var(--chip);
+  color: var(--text);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 120ms ease, border-color 120ms ease, transform 120ms ease;
+}
+
+@utility btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #ffffff;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+@utility icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  border-radius: 9999px;
+  border: 1px solid var(--border-field);
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+
 @utility field {
   width: 100%;
   min-height: 44px;
-  padding: 0.55rem 0.7rem;
-  border-radius: 0.6rem;
-  border: 1px solid var(--border);
-  background: var(--surface-2);
+  padding: 0.5rem 0.8rem;
+  border-radius: 16px;
+  border: 1px solid var(--border-field);
+  background: var(--chip);
   color: var(--text);
+}
+
+/* Pseudo-class states must be plain CSS: Tailwind v4 utility names are alphanumeric only. */
+.btn:hover:not(:disabled) {
+  background: #262c4d;
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #2f7bff;
+}
+
+.icon-btn:hover {
+  background: var(--chip);
+}
+
+.field::placeholder {
+  color: var(--muted);
+}
+
+/* Range slider styled to match the design (blue fill, white thumb). */
+input[type='range'] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  border-radius: 9999px;
+  background: linear-gradient(
+    to right,
+    var(--accent) 0%,
+    var(--accent) var(--fill, 50%),
+    #3a4060 var(--fill, 50%),
+    #3a4060 100%
+  );
+  cursor: pointer;
+}
+
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 9999px;
+  background: #ffffff;
+  border: none;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+}
+
+input[type='range']::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 9999px;
+  background: #ffffff;
+  border: none;
+}
+
+/* Thin scrollbars on dark surfaces. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #3a4060 transparent;
+}
+
+/* The preview tool rail stays compact; it still scrolls with wheel/touch. */
+.tool-scroll {
+  scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 14px), transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 14px), transparent 100%);
+}
+
+.tool-scroll::-webkit-scrollbar {
+  display: none;
 }
