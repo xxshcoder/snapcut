@@ -1,0 +1,11 @@
+node_modules/
+dist/
+worker/dist/
+dev-dist/
+.wrangler/
+playwright-report/
+test-results/
+*.tsbuildinfo
+.env
+.env.*
+!.env.example

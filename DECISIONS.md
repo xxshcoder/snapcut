@@ -1,0 +1,22 @@
+# Decisions
+
+Deviations, clarifications and library notes made while implementing `PLAN.md`.
+Every entry records what the plan said, what was done, and why.
+
+| ID | Task | Decision |
+| --- | --- | --- |
+| D1 | T0.1 | `typescript` is pinned to `~5.9.3` instead of the current `7.0.2`: `typescript-eslint@8.73` (used by ESLint 10) declares `typescript >=4.8.4 <6.1.0`. TypeScript 7 will be adopted when the lint toolchain supports it. Vite 8, React 19.3, Tailwind 4.3 and ESLint 10 are current versions as verified against npm on 2026-11-22. |
+| D2 | T0.1 / T3.2 | `zod` was added (as the plan explicitly permits in T5.3) and is shared by the Worker and the browser for a single API contract (`src/contracts.ts`). Zod 4 is used. |
+| D3 | T3.2 | The plan's `responseMimeType: application/json` (generateContent-era field) has been superseded by the Gemini **Interactions API**. The Worker calls `POST /v1beta/interactions` with `response_format: { type: 'text', mime_type: 'application/json', schema }` and reads `output_text`, per current Google docs. Model is `gemini-3.8-flash` (current stable Flash); `gemini-2.5-flash` is deprecated and routes elsewhere from 2026-12-01. The exact model string lives in the shared, environment-free `src/shared/constants.ts` and is re-exported by `src/config.ts`. |
+| D4 | T3.1 | Groq still uses `whisper-large-v3-turbo`, `response_format=verbose_json`, `timestamp_granularities[]=word`, as confirmed in current Groq docs. |
+| D5 | T0.4 / T3.3 | Rate limiting uses a **Durable Object** (one instance per hashed IP) with a fixed 60-second window plus a rolling daily job counter. A small in-memory limiter is used only when the binding is absent (local `wrangler dev` before the binding is configured); this is not used in production. |
+| D6 | T8.3 | ffmpeg.wasm is loaded with a single-threaded core, so no COOP/COEP headers are required; `public/_headers` is intentionally omitted. If threads are enabled later, add the headers. |
+| D7 | T3.3 | Worker tests run in Vitest's node environment with mocked bindings/fetch rather than `@cloudflare/vitest-pool-workers`: all limit/CORS/error-path logic is pure and does not need miniflare. This keeps `npm test` fast and deterministic. |
+| D8 | T2.1 | Audio is encoded to Opus inside an **Ogg** container (Groq accepts `ogg`) via Mediabunny's `AudioBufferSource` with `transform: { numberOfChannels: 1, sampleRate: 16000 }`. This streams chunks through `StreamTarget` and avoids hand-rolling a WebCodecs resampler. If Opus encoding is unsupported, AAC in MP4 (`m4a`) is used instead and recorded in `config`/UI. |
+| D9 | T7.2 | Captions use the local system font stack (`system-ui`/`Arial`, no network request) instead of a downloaded webfont. Any locally bundled font can be substituted by changing `CAPTION_FONT` in `src/config.ts`. |
+| D10 | T9.1 | MediaPipe Tasks Vision 1.2.3 is used. The WASM/model assets are loaded from URLs in `config.ts`; if they cannot be fetched, tracking falls back to a static centred crop with a visible notice. No user media is uploaded to load them. |
+| D11 | T1.2 | `File` objects are read exclusively through Mediabunny's `BlobSource`, which performs bounded, lazy ranged reads. `file.arrayBuffer()` is never called on the source video. |
+| D12 | T7.1 | Mediabunny's `CanvasSink` performs the keyframe seek + forward decode; frames are drawn into a separately sized output canvas and encoded with `CanvasSource`. Encoders are checked with `VideoEncoder.isConfigSupported` and walked across a profile list before starting the output. |
+| D13 | T6.4 | The editor's caption overlay and the renderer call the same pure `drawCaptions` function, so preview and export use identical layout code. |
+| D14 | T3.2 | The Gemini Interactions request sets `store: false` (no provider-side transcript retention; stateless calls do not need `previous_interaction_id`) and the documented `Api-Revision: 2026-05-20` header. Google's current docs still list `gemini-3.8-flash` as a supported Flash model alongside Gemini 4; it remains the selected cost-appropriate model. |
+| D15 | T0.4 | The current Wrangler/workerd module runner requires a default export; a module with only a named `fetch` returned HTTP 500 for every request. `worker/src/index.ts` now exports both the named handlers used by Vitest and a default `{ fetch, RateLimiter }` object. |
