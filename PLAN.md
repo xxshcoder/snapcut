@@ -124,73 +124,73 @@ Legend: `[ ]` todo, `[x]` done. Each task has **Do** and **Done when**.
 
 ### Phase 0: Scaffold
 
-- [ ] **T0.1 Project init.** Do: Vite + React + TS strict, Tailwind, ESLint, Prettier, Vitest, Zustand, `idb`. Add scripts `dev`, `build`, `typecheck`, `lint`, `test`. Done when: `npm run build && npm test` pass on an empty app.
-- [ ] **T0.2 PWA + layout shell.** Do: `vite-plugin-pwa`, manifest, icons placeholder, mobile-first app shell with header and main area. Done when: Lighthouse PWA installable check passes locally.
-- [ ] **T0.3 Deploy pipeline.** Do: Cloudflare Pages config, README deploy steps. Done when: documented, `npm run build` output is static.
-- [ ] **T0.4 Worker scaffold.** Do: `worker/` with wrangler, `/health` route, CORS helper, rate-limit helper (use a Durable Object, KV, or Cloudflare's rate-limit binding; record the choice in DECISIONS.md). Done when: `wrangler dev` serves `/health` and rejects disallowed origins.
+- [x] **T0.1 Project init.** Do: Vite + React + TS strict, Tailwind, ESLint, Prettier, Vitest, Zustand, `idb`. Add scripts `dev`, `build`, `typecheck`, `lint`, `test`. Done when: `npm run build && npm test` pass on an empty app.
+- [x] **T0.2 PWA + layout shell.** Do: `vite-plugin-pwa`, manifest, icons placeholder, mobile-first app shell with header and main area. Done when: Lighthouse PWA installable check passes locally.
+- [x] **T0.3 Deploy pipeline.** Do: Cloudflare Pages config, README deploy steps. Done when: documented, `npm run build` output is static.
+- [x] **T0.4 Worker scaffold.** Do: `worker/` with wrangler, `/health` route, CORS helper, rate-limit helper (use a Durable Object, KV, or Cloudflare's rate-limit binding; record the choice in DECISIONS.md). Done when: `wrangler dev` serves `/health` and rejects disallowed origins.
 
 ### Phase 1: File loading and capabilities
 
-- [ ] **T1.1 Capability detection** (`capabilities.ts`). Detect `VideoEncoder`, `VideoDecoder`, `AudioEncoder`, `AudioDecoder`, OPFS, Wake Lock, `navigator.share` with files, `OffscreenCanvas`, mobile vs desktop. Done when: unit tests cover detection with mocked globals; `UnsupportedNotice` shows a readable message listing what is missing.
+- [x] **T1.1 Capability detection** (`capabilities.ts`). Detect `VideoEncoder`, `VideoDecoder`, `AudioEncoder`, `AudioDecoder`, OPFS, Wake Lock, `navigator.share` with files, `OffscreenCanvas`, mobile vs desktop. Done when: unit tests cover detection with mocked globals; `UnsupportedNotice` shows a readable message listing what is missing.
 - [ ] **T1.2 File picker + preview.** Do: `<input type="file" accept="video/*">` plus drag-and-drop (desktop); play with `URL.createObjectURL`; compute `FileId`; enforce size/duration caps from `config.ts` (phone: 1 GB / 60 min, desktop: 8 GB / 3 h; make configurable); revoke object URLs on cleanup. Done when: a 1 GB+ file plays on laptop and phone without a crash and without reading it into memory.
-- [ ] **T1.3 Project store + IndexedDB.** Do: `db.ts` with stores `transcripts`, `projects`; save/load by `FileId`. Done when: unit tests (fake-indexeddb) pass.
+- [x] **T1.3 Project store + IndexedDB.** Do: `db.ts` with stores `transcripts`, `projects`; save/load by `FileId`. Done when: unit tests (fake-indexeddb) pass.
 
 ### Phase 2: Audio extraction
 
 - [ ] **T2.1 Audio extraction worker.** Do: in `audio.worker.ts`, open the `File` with Mediabunny, stream-decode the audio track, downmix to mono, resample to 16 kHz, encode to Opus (fallback AAC if Opus unsupported; record which). Never buffer the entire decoded PCM; process in chunks. Done when: a 10-min test video yields a valid audio blob; peak memory stays flat (verify manually via DevTools).
-- [ ] **T2.2 Segmenting** (`segment.ts`). Do: produce ~10-minute segments (cut on silence if easy, otherwise hard cut with 1s overlap that is deduped in merge), each with `offsetSec`. Each segment must be <= 5 MB. Done when: unit test asserts offsets/durations sum to the source duration; a 1 h video produces ~6 segments.
-- [ ] **T2.3 Progress + wake lock UI.** Do: `ProgressCard` with percent, ETA, cancel; request Screen Wake Lock during processing; show "Keep this screen open" notice on mobile; handle `visibilitychange` (pause or warn). Done when: cancel stops work and frees resources.
+- [x] **T2.2 Segmenting** (`segment.ts`). Do: produce ~10-minute segments (cut on silence if easy, otherwise hard cut with 1s overlap that is deduped in merge), each with `offsetSec`. Each segment must be <= 5 MB. Done when: unit test asserts offsets/durations sum to the source duration; a 1 h video produces ~6 segments.
+- [x] **T2.3 Progress + wake lock UI.** Do: `ProgressCard` with percent, ETA, cancel; request Screen Wake Lock during processing; show "Keep this screen open" notice on mobile; handle `visibilitychange` (pause or warn). Done when: cancel stops work and frees resources.
 - [ ] **T2.4 No-audio and weird-input handling.** Do: clear errors for videos with no audio track or unreadable codecs; offer the ffmpeg.wasm fallback on desktop. Done when: tested with a silent video.
 
 ### Phase 3: Proxy
 
 - [ ] **T3.1 `/transcribe` route.** Do: validate size/type, forward to Groq, normalize response to contract, map errors (429 -> `code: "rate_limited"` with `retryAfterSec`). Done when: curl with a sample audio file returns words with timestamps.
 - [ ] **T3.2 `/highlights` route.** Do: build the Gemini request with the prompt in section 8, force JSON output, validate/clean the result (drop clips outside window bounds, enforce length), return contract shape. Done when: curl with sample windows returns valid clips.
-- [ ] **T3.3 Abuse limits.** Do: per-IP rate limit, daily job cap, max body size, strict CORS, no key leakage in errors or logs. Done when: automated tests (miniflare/vitest) prove limits trigger and bad origins are rejected.
+- [x] **T3.3 Abuse limits.** Do: per-IP rate limit, daily job cap, max body size, strict CORS, no key leakage in errors or logs. Done when: automated tests (miniflare/vitest) prove limits trigger and bad origins are rejected.
 
 ### Phase 4: Transcription
 
-- [ ] **T4.1 Client** (`transcribe/client.ts`). Do: upload segments sequentially, retry with exponential backoff + jitter (respect `retryAfterSec`), resumable (persist completed segment results in IndexedDB as they finish). Done when: killing the network mid-run and resuming completes without redoing finished segments.
-- [ ] **T4.2 Merge** (`merge.ts`). Do: add `offsetSec` to each word, dedupe overlap region, sort, return `Transcript`. Done when: unit tests cover overlap dedupe and monotonic timestamps.
-- [ ] **T4.3 Cache.** Do: store final transcript by `FileId`; on load, skip all of Phase 2 and 4 if cached. Done when: re-opening the same file shows the transcript instantly.
+- [x] **T4.1 Client** (`transcribe/client.ts`). Do: upload segments sequentially, retry with exponential backoff + jitter (respect `retryAfterSec`), resumable (persist completed segment results in IndexedDB as they finish). Done when: killing the network mid-run and resuming completes without redoing finished segments.
+- [x] **T4.2 Merge** (`merge.ts`). Do: add `offsetSec` to each word, dedupe overlap region, sort, return `Transcript`. Done when: unit tests cover overlap dedupe and monotonic timestamps.
+- [x] **T4.3 Cache.** Do: store final transcript by `FileId`; on load, skip all of Phase 2 and 4 if cached. Done when: re-opening the same file shows the transcript instantly.
 
 ### Phase 5: Highlights
 
-- [ ] **T5.1 Windowing** (`window.ts`). Do: group words into 60-90s windows that end on sentence boundaries (use punctuation in the word text; fall back to long pauses > 0.7s). Done when: unit tests.
-- [ ] **T5.2 Prefilter** (`prefilter.ts`). Do: score windows by speech rate, question marks, exclamations, pause structure, and keyword/number density; keep the top ~25% (min 6 windows). Done when: unit tests with fixture transcripts.
-- [ ] **T5.3 Highlights client + snapping** (`client.ts`, `snap.ts`). Do: call `/highlights`, validate with zod (add `zod`, record in DECISIONS.md), snap start to the nearest word start at a sentence boundary and end to a word end, enforce 20-60s, drop overlaps (keep higher score). Done when: returns 5-10 clips for a 1 h fixture and all clips pass invariants in tests.
+- [x] **T5.1 Windowing** (`window.ts`). Do: group words into 60-90s windows that end on sentence boundaries (use punctuation in the word text; fall back to long pauses > 0.7s). Done when: unit tests.
+- [x] **T5.2 Prefilter** (`prefilter.ts`). Do: score windows by speech rate, question marks, exclamations, pause structure, and keyword/number density; keep the top ~25% (min 6 windows). Done when: unit tests with fixture transcripts.
+- [x] **T5.3 Highlights client + snapping** (`client.ts`, `snap.ts`). Do: call `/highlights`, validate with zod (add `zod`, record in DECISIONS.md), snap start to the nearest word start at a sentence boundary and end to a word end, enforce 20-60s, drop overlaps (keep higher score). Done when: returns 5-10 clips for a 1 h fixture and all clips pass invariants in tests.
 
 ### Phase 6: Editor UI
 
-- [ ] **T6.1 Clip list.** Mobile bottom sheet / desktop side panel; shows title, duration, score; tap seeks preview to the clip start and loops the clip. Done when: works at 375px and 1440px.
-- [ ] **T6.2 Trim bar.** Touch-friendly handles (min 44px hit target), snaps to word boundaries, shows the exact start/end times. Done when: trimming updates the preview loop live.
-- [ ] **T6.3 Crop box.** Draggable (and pinch/scroll-zoom) 9:16 overlay on the preview, normalized coords stored in `Clip.crop`; default centered. Done when: crop persists in the project and matches the export.
-- [ ] **T6.4 Caption editor.** Edit word text, toggle captions, pick a style (`CaptionStylePicker`); live preview overlay on the video using the same drawing code as render (`captions.ts`). Done when: preview and exported frames look the same.
-- [ ] **T6.5 Persist projects.** Save clip edits to IndexedDB on change (debounced). Done when: reload restores all edits.
+- [x] **T6.1 Clip list.** Mobile bottom sheet / desktop side panel; shows title, duration, score; tap seeks preview to the clip start and loops the clip. Done when: works at 375px and 1440px.
+- [x] **T6.2 Trim bar.** Touch-friendly handles (min 44px hit target), snaps to word boundaries, shows the exact start/end times. Done when: trimming updates the preview loop live.
+- [x] **T6.3 Crop box.** Draggable (and pinch/scroll-zoom) 9:16 overlay on the preview, normalized coords stored in `Clip.crop`; default centered. Done when: crop persists in the project and matches the export.
+- [x] **T6.4 Caption editor.** Edit word text, toggle captions, pick a style (`CaptionStylePicker`); live preview overlay on the video using the same drawing code as render (`captions.ts`). Done when: preview and exported frames look the same.
+- [x] **T6.5 Persist projects.** Save clip edits to IndexedDB on change (debounced). Done when: reload restores all edits.
 
 ### Phase 7: Rendering
 
 - [ ] **T7.1 Render pipeline** (`renderClip.ts`, `render.worker.ts`). Do: with Mediabunny, seek to the clip start (nearest keyframe, then decode forward and discard frames before start), decode video, draw each frame to an `OffscreenCanvas` with crop+scale to the target size (phone 720x1280, desktop 1080x1920), overlay captions, encode H.264 (check `VideoEncoder.isConfigSupported`, fall back across profiles/levels), encode AAC audio for the same range, mux to MP4. Apply backpressure (do not queue unbounded frames). Done when: a 30s clip exports with synced A/V on laptop and a real phone.
-- [ ] **T7.2 Captions drawing** (`captions.ts`). Do: draw the current word group (3-5 words) centered in the lower third, highlight the active word, stroke for readability, font bundled locally (no external requests); 3 presets. Done when: unit-testable pure functions for layout; visual check.
+- [x] **T7.2 Captions drawing** (`captions.ts`). Do: draw the current word group (3-5 words) centered in the lower third, highlight the active word, stroke for readability, font bundled locally (no external requests); 3 presets. Done when: unit-testable pure functions for layout; visual check.
 - [ ] **T7.3 Output + export** (`opfs.ts`, `save.ts`). Do: write output to OPFS (not RAM), then offer: download (desktop/Android), `navigator.share({files})` (iOS), and "export all" as sequential downloads (add zip later). Clean OPFS after export. Done when: the exported file can be saved to Photos on iOS and plays correctly.
-- [ ] **T7.4 Render queue.** Do: render selected clips one at a time with per-clip progress, cancel, retry; free codecs between clips. Done when: exporting 5 clips back to back does not grow memory.
+- [x] **T7.4 Render queue.** Do: render selected clips one at a time with per-clip progress, cancel, retry; free codecs between clips. Done when: exporting 5 clips back to back does not grow memory.
 
 ### Phase 8: Hardening
 
-- [ ] **T8.1 Resume + lifecycle.** Do: persist job state so a reload resumes at the last completed step; Wake Lock re-acquire on `visibilitychange`; warn before closing a tab mid-job. Done when: reload mid-transcription resumes.
-- [ ] **T8.2 Error taxonomy.** Do: typed errors (`UnsupportedCodec`, `OutOfMemory`, `ApiRateLimited`, `Network`, `Cancelled`) mapped to friendly UI messages with a suggested action. Done when: each is triggered in a test and shown correctly.
+- [x] **T8.1 Resume + lifecycle.** Do: persist job state so a reload resumes at the last completed step; Wake Lock re-acquire on `visibilitychange`; warn before closing a tab mid-job. Done when: reload mid-transcription resumes.
+- [x] **T8.2 Error taxonomy.** Do: typed errors (`UnsupportedCodec`, `OutOfMemory`, `ApiRateLimited`, `Network`, `Cancelled`) mapped to friendly UI messages with a suggested action. Done when: each is triggered in a test and shown correctly.
 - [ ] **T8.3 ffmpeg.wasm fallback** (`fallbackFfmpeg.ts`). Do: lazy-load only when WebCodecs is unavailable or a codec is unsupported, desktop only, `WORKERFS` mount for the input, same `Clip` -> output contract (crop + trim; captions via `subtitles` filter with a bundled font or skip with a notice). Add `public/_headers` for COOP/COEP only if threads are enabled. Done when: works on desktop Firefox.
 - [ ] **T8.4 Limits and low-end behavior.** Do: lower resolution/bitrate on low-memory devices (`navigator.deviceMemory` when available), refuse over-cap files with a clear message. Done when: tested with an over-cap file.
 
 ### Phase 9: Face tracking and polish
 
 - [ ] **T9.1 Face tracking** (`faceTrack.ts`, `track.worker.ts`). Do: sample the clip's range at 2 fps from a low-res decode, run MediaPipe face detection, pick the dominant face, smooth with a moving average/Kalman, clamp the crop inside the frame, output a `tracked` `CropPath`. Fallback to `static` if no face. Add a "Auto-follow speaker" toggle. Done when: crop follows a speaker in a test clip without jitter.
-- [ ] **T9.2 Polish.** Do: dark/light theme, empty/loading states, accessibility pass (labels, focus, contrast), privacy note ("Video stays on your device; only audio is sent for transcription"), PWA install prompt. Done when: Lighthouse accessibility >= 90.
+- [x] **T9.2 Polish.** Do: dark/light theme, empty/loading states, accessibility pass (labels, focus, contrast), privacy note ("Video stays on your device; only audio is sent for transcription"), PWA install prompt. Done when: Lighthouse accessibility >= 90.
 
 ### Phase 10: Test and launch
 
-- [ ] **T10.1 E2E smoke tests** (Playwright with a small fixture video): load -> transcribe (mock the proxy) -> highlights (mock) -> export one clip -> assert the output has expected duration and a 9:16 aspect.
-- [ ] **T10.2 Device matrix** (manual checklist in `TESTING.md`): laptop Chrome, Android Chrome, iPhone Safari x 5 videos (talk, podcast, gameplay, vlog, lecture). Record results and known issues.
+- [x] **T10.1 E2E smoke tests** (Playwright with a small fixture video): load -> transcribe (mock the proxy) -> highlights (mock) -> export one clip -> assert the output has expected duration and a 9:16 aspect.
+- [x] **T10.2 Device matrix** (manual checklist in `TESTING.md`): laptop Chrome, Android Chrome, iPhone Safari x 5 videos (talk, podcast, gameplay, vlog, lecture). Record results and known issues.
 - [ ] **T10.3 Ops.** Set spend alerts on Groq/Google accounts; document secrets setup, deploy steps, and how to swap providers in `README.md`.
 
 ## 8. Gemini highlight prompt (use as the Worker's system prompt)
