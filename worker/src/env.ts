@@ -11,6 +11,8 @@ export interface Env {
   MAX_AUDIO_BYTES?: string | number;
   RATE_LIMIT_PER_MIN?: string | number;
   DAILY_JOB_CAP?: string | number;
+  /** Local-development only, set in worker/.dev.vars. Never set in a deployed Worker. */
+  MOCK_PROVIDERS?: string;
   RATE_LIMITER?: DurableObjectNamespace;
 }
 

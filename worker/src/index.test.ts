@@ -152,6 +152,20 @@ describe('POST /transcribe', () => {
     expect(noKey.status).toBe(503);
     expect(await noKey.json()).toMatchObject({ code: 'server_misconfigured' });
   });
+
+  it('uses local mock transcription when MOCK_PROVIDERS=true', async () => {
+    const providerFetch = stubFetchOnce({});
+    const response = await workerFetch(
+      withIp('10.0.1.4', audioRequest()),
+      makeEnv({ MOCK_PROVIDERS: 'true', GROQ_API_KEY: '' }),
+    );
+    const body = (await response.json()) as { words: unknown[] };
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('X-Snapcut-Mock')).toBe('true');
+    expect(body.words.length).toBeGreaterThan(0);
+    expect(providerFetch).not.toHaveBeenCalled();
+  });
 });
 
 describe('POST /highlights', () => {
@@ -182,6 +196,20 @@ describe('POST /highlights', () => {
     const response = await workerFetch(withIp('10.0.2.2', request), makeEnv());
     expect(response.status).toBe(400);
     expect(await response.json()).toMatchObject({ code: 'invalid_request' });
+  });
+
+  it('uses local mock highlights without an API key', async () => {
+    const providerFetch = stubFetchOnce({});
+    const response = await workerFetch(
+      withIp('10.0.2.3', highlightsRequest()),
+      makeEnv({ MOCK_PROVIDERS: 'true', GEMINI_API_KEY: '' }),
+    );
+    const body = (await response.json()) as { clips: { title: string }[] };
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('X-Snapcut-Mock')).toBe('true');
+    expect(body.clips[0]?.title).toContain('Mock highlight');
+    expect(providerFetch).not.toHaveBeenCalled();
   });
 });
 

@@ -41,6 +41,18 @@ This means the browser never received an HTTP response from `/transcribe` or `/h
 3. Leave `VITE_API_BASE_URL` empty when using the Vite dev/preview proxy. If you set it to a dead Worker URL, `fetch()` will reject before CORS.
 4. Restart both servers after changing `ALLOWED_ORIGIN` or `.env`.
 
+### Local demo without API keys
+
+If you do not have Groq/Gemini keys, `worker/.dev.vars` contains:
+
+```env
+MOCK_PROVIDERS=true
+```
+
+With this enabled, `wrangler dev` returns deterministic mock transcription and highlight results, so you can exercise the whole UI and export flow without any provider calls or charges. Responses include an `X-Snapcut-Mock: true` header. This file is gitignored and is never deployed. Remove the line or set it to `false` when you add real keys.
+
+Groq's free plan covers `whisper-large-v3-turbo` (20 RPM / 2,000 RPD / 8 audio-hours per day). Gemini's free tier covers `gemini-3.8-flash` tokens, but free-tier prompts may be used to improve Google products; use the paid tier for sensitive transcripts.
+
 ### Scripts
 
 | Script | Purpose |

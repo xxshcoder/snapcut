@@ -1,6 +1,7 @@
 import { ZodError } from 'zod';
 import { highlightsRequestSchema } from '../../src/contracts';
 import { readConfig, type Env, type WorkerConfig } from './env';
+import { mockHighlights, mockTranscription } from './mock';
 import { ProviderError, requestGeminiHighlights, transcribeWithGroq } from './providers';
 import { checkRateLimit, clientIp, RateLimiter, type LimitConfig } from './rateLimit';
 import {
@@ -14,6 +15,12 @@ import {
 export { RateLimiter };
 
 type ResponseHeaders = Record<string, string>;
+
+const MOCK_HEADER: ResponseHeaders = { 'X-Snapcut-Mock': 'true' };
+
+function isMock(env: Env): boolean {
+  return env.MOCK_PROVIDERS === 'true';
+}
 
 function corsHeaders(origin: string | null, config: WorkerConfig): ResponseHeaders {
   if (!origin || !config.allowedOrigins.has(origin)) return {};
@@ -100,18 +107,20 @@ async function handleTranscribe(
   if (Number.isFinite(contentLength) && contentLength > config.maxAudioBytes + 1_000_000) {
     return errorResponse('file_too_large', 'Request body too large', 413, request, config);
   }
-  if (!env.GROQ_API_KEY) {
-    return errorResponse(
-      'server_misconfigured',
-      'Transcription is not configured',
-      503,
-      request,
-      config,
-    );
-  }
-
   try {
     const { file, language } = await parseTranscribeForm(request, config.maxAudioBytes);
+    if (isMock(env)) {
+      return jsonResponse(mockTranscription(file.size), 200, request, config, MOCK_HEADER);
+    }
+    if (!env.GROQ_API_KEY) {
+      return errorResponse(
+        'server_misconfigured',
+        'Transcription is not configured',
+        503,
+        request,
+        config,
+      );
+    }
     const providerPayload = await transcribeWithGroq(file, language, env.GROQ_API_KEY);
     const result = normalizeGroqTranscription(providerPayload);
     return jsonResponse(result, 200, request, config);
@@ -129,18 +138,20 @@ async function handleHighlights(
   if (!contentType.includes('application/json')) {
     return errorResponse('invalid_body', 'Expected application/json', 415, request, config);
   }
-  if (!env.GEMINI_API_KEY) {
-    return errorResponse(
-      'server_misconfigured',
-      'Highlights are not configured',
-      503,
-      request,
-      config,
-    );
-  }
-
   try {
     const parsed = highlightsRequestSchema.parse(await request.json());
+    if (isMock(env)) {
+      return jsonResponse(mockHighlights(parsed), 200, request, config, MOCK_HEADER);
+    }
+    if (!env.GEMINI_API_KEY) {
+      return errorResponse(
+        'server_misconfigured',
+        'Highlights are not configured',
+        503,
+        request,
+        config,
+      );
+    }
     const providerPayload = await requestGeminiHighlights(parsed, env.GEMINI_API_KEY);
     const result = cleanHighlights(providerPayload, parsed);
     return jsonResponse(result, 200, request, config);

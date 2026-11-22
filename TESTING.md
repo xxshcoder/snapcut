@@ -124,7 +124,7 @@ Fill each cell with `Pass`, `Fail`, or `Blocked (reason)`.
 | --- | --- |
 | `npm run typecheck` | Pass |
 | `npm run lint` | Pass |
-| `npm test` | Pass — 17 files, 135 tests |
+| `npm test` | Pass — 17 files, 137 tests |
 | `npm run build` | Pass — static `dist/`, PWA service worker generated |
 | `npx playwright test --reporter=list` | Pass — 1 smoke test |
 | Lighthouse (production preview) | Accessibility 1.00, Best Practices 1.00, SEO 1.00; no failures |
@@ -134,6 +134,7 @@ Fill each cell with `Pass`, `Fail`, or `Blocked (reason)`.
 | Worker allowed local origins | `localhost:5173`, `127.0.0.1:5173`, `localhost:4173`, `127.0.0.1:4173` all return `200` with CORS headers; unknown origin still `403` |
 | Vite preview proxy | `/transcribe`, `/highlights`, `/health` proxied to the Worker in `npm run preview` as well as `npm run dev` |
 | Raw `fetch()` rejection | `/transcribe` and `/highlights` now surface an actionable `NetworkError` instead of "Failed to fetch" |
+| Local mock mode | `MOCK_PROVIDERS=true` in gitignored `worker/.dev.vars`; `/transcribe` and `/highlights` return `200` with `X-Snapcut-Mock: true` without API keys; provider `fetch` is never called |
 | `npx tsc -p tsconfig.worker.json --noEmit` | Pass |
 | `npx wrangler deploy --dry-run` from `worker/` | Pass |
 | `grep` API-key names/prefixes in `dist/` | No matches |
