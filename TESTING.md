@@ -135,6 +135,7 @@ Fill each cell with `Pass`, `Fail`, or `Blocked (reason)`.
 | Vite preview proxy | `/transcribe`, `/highlights`, `/health` proxied to the Worker in `npm run preview` as well as `npm run dev` |
 | Raw `fetch()` rejection | `/transcribe` and `/highlights` now surface an actionable `NetworkError` instead of "Failed to fetch" |
 | Local mock mode | `MOCK_PROVIDERS=true` in gitignored `worker/.dev.vars`; `/transcribe` and `/highlights` return `200` with `X-Snapcut-Mock: true` without API keys; provider `fetch` is never called |
+| Blob download lifetime | Anchor kept 60 s and object URL 5 min so large Chrome downloads are not aborted; e2e export still passes |
 | `npx tsc -p tsconfig.worker.json --noEmit` | Pass |
 | `npx wrangler deploy --dry-run` from `worker/` | Pass |
 | `grep` API-key names/prefixes in `dist/` | No matches |

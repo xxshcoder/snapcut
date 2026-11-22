@@ -1,14 +1,18 @@
 export type ExportResult = 'shared' | 'downloaded';
 
 function download(blob: Blob, filename: string): void {
+  if (blob.size === 0) throw new Error('The rendered clip is empty. Try exporting again.');
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
   anchor.href = url;
   anchor.download = filename;
+  anchor.rel = 'noopener';
   document.body.appendChild(anchor);
   anchor.click();
-  anchor.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 30_000);
+  // Keep both the anchor and the object URL alive while Chrome copies large
+  // blobs to the downloads folder; revoking too early shows a failed download.
+  setTimeout(() => anchor.remove(), 60_000);
+  setTimeout(() => URL.revokeObjectURL(url), 5 * 60_000);
 }
 
 export async function exportBlob(blob: Blob, filename: string, preferShare: boolean): Promise<ExportResult> {
