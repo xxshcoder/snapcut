@@ -1,0 +1,6 @@
+name = "snapcut"
+compatibility_date = "2026-11-22"
+pages_build_output_dir = "dist"
+
+# Cloudflare Pages deployment config for the static app. The API Worker has its
+# own config in worker/wrangler.toml and is deployed separately.
