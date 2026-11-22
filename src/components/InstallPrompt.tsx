@@ -25,7 +25,7 @@ export function InstallPrompt() {
   if (!event) return null;
   return (
     <button
-      className="btn min-h-36 px-3 py-1 text-xs"
+      className="btn px-3 py-1 text-xs"
       onClick={async () => {
         await event.prompt();
         await event.userChoice;

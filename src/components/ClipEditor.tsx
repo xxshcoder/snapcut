@@ -19,6 +19,10 @@ type Props = {
 
 const PREVIEW_WIDTH = 540;
 const PREVIEW_HEIGHT = 960;
+/** Shared height; each surface derives its own width from its aspect ratio. */
+const PREVIEW_BOX_SIZE = '[--box-h:200px] sm:[--box-h:300px] lg:[--box-h:460px]';
+
+type VideoBox = { left: number; top: number; width: number; height: number };
 
 export function ClipEditor({
   clip,
@@ -31,10 +35,12 @@ export function ClipEditor({
   onTrack,
 }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const sourceBoxRef = useRef<HTMLDivElement>(null);
   const previewRef = useRef<HTMLCanvasElement>(null);
   const frameRef = useRef<number | null>(null);
   const [showWords, setShowWords] = useState(false);
   const [playhead, setPlayhead] = useState(clip.start);
+  const [videoBox, setVideoBox] = useState<VideoBox>({ left: 0, top: 0, width: 0, height: 0 });
 
   useEffect(() => {
     const video = videoRef.current;
@@ -61,6 +67,40 @@ export function ClipEditor({
       video.removeEventListener('timeupdate', onTimeUpdate);
     };
   }, [clip.start, clip.end, objectUrl]);
+
+  // The source video is letterboxed with object-contain inside a fixed-height
+  // box. Measure the real displayed rectangle so the crop overlay stays aligned
+  // with the pixels the renderer will crop.
+  useEffect(() => {
+    const box = sourceBoxRef.current;
+    const video = videoRef.current;
+    if (!box || !video) return;
+    const measure = (): void => {
+      const vw = video.videoWidth;
+      const vh = video.videoHeight;
+      if (!vw || !vh) return;
+      const bounds = box.getBoundingClientRect();
+      const scale = Math.min(bounds.width / vw, bounds.height / vh);
+      const width = vw * scale;
+      const height = vh * scale;
+      setVideoBox({
+        left: (bounds.width - width) / 2,
+        top: (bounds.height - height) / 2,
+        width,
+        height,
+      });
+    };
+    measure();
+    video.addEventListener('loadedmetadata', measure);
+    video.addEventListener('resize', measure);
+    const observer = new ResizeObserver(measure);
+    observer.observe(box);
+    return () => {
+      video.removeEventListener('loadedmetadata', measure);
+      video.removeEventListener('resize', measure);
+      observer.disconnect();
+    };
+  }, [objectUrl, meta.width, meta.height]);
 
   // The export preview draws through cropToPixels + drawCaptions, the same two
   // pure functions used by the render worker, so WYSIWYG stays aligned with MP4.
@@ -101,13 +141,18 @@ export function ClipEditor({
     };
   }, [clip.captionsEnabled, clip.captionStyle, clip.crop, clip.words, clip.start, meta.width, meta.height]);
 
-  const aspect = meta.width > 0 && meta.height > 0 ? `${meta.width} / ${meta.height}` : '16 / 9';
+  const aspect = meta.width > 0 && meta.height > 0 ? meta.width / meta.height : 16 / 9;
 
   return (
     <section className="panel p-3" aria-label={`Edit ${clip.title}`}>
-      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(180px,280px)]">
-        <div className="mx-auto w-full max-w-[560px]">
-          <div className="relative mx-auto w-full overflow-hidden rounded-lg bg-black" style={{ aspectRatio: aspect }}>
+      <div className={`grid gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,0.65fr)] ${PREVIEW_BOX_SIZE}`}>
+        <div className="flex flex-col items-center">
+          <p className="muted mb-1 text-center text-xs font-semibold uppercase tracking-wide">Source video</p>
+          <div
+            ref={sourceBoxRef}
+            className="relative max-w-full shrink-0 overflow-hidden rounded-lg bg-black"
+            style={{ width: `calc(var(--box-h) * ${aspect})`, height: 'var(--box-h)' }}
+          >
             <video
               ref={videoRef}
               src={objectUrl}
@@ -122,21 +167,27 @@ export function ClipEditor({
               sourceWidth={meta.width}
               sourceHeight={meta.height}
               time={playhead}
+              bounds={videoBox}
               onChange={(crop) => onUpdate({ crop })}
             />
           </div>
           <p className="muted mt-1 text-center text-xs">Drag the framed box to reframe. Use + / − or pinch to zoom.</p>
         </div>
 
-        <div className="mx-auto w-full max-w-[280px]">
+        <div className="flex flex-col items-center">
           <p className="muted mb-1 text-center text-xs font-semibold uppercase tracking-wide">9:16 export preview</p>
-          <canvas
-            ref={previewRef}
-            width={PREVIEW_WIDTH}
-            height={PREVIEW_HEIGHT}
-            className="mx-auto block w-full overflow-hidden rounded-lg bg-black shadow-lg"
-            aria-label="Export preview with crop and captions"
-          />
+          <div
+            className="shrink-0 overflow-hidden rounded-lg bg-black shadow-lg"
+            style={{ width: 'calc(var(--box-h) * 9 / 16)', height: 'var(--box-h)' }}
+          >
+            <canvas
+              ref={previewRef}
+              width={PREVIEW_WIDTH}
+              height={PREVIEW_HEIGHT}
+              className="block h-full w-full object-contain"
+              aria-label="Export preview with crop and captions"
+            />
+          </div>
           <p className="muted mt-1 text-center text-xs">Captions and framing here match the rendered file.</p>
         </div>
       </div>

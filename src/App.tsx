@@ -55,6 +55,12 @@ export default function App() {
   }, [isAnalyzing, isRendering, flushSaves, handleVisibilityChange]);
 
   const selectedClip = state.clips.find((clip) => clip.id === state.selectedClipId) ?? null;
+  const selectedCount = state.selectedClipIds.length;
+  const exportLabel = selectedCount === 0
+    ? 'Select clips to export'
+    : selectedCount === 1
+      ? 'Export 1 clip'
+      : `Export ${selectedCount} clips`;
   const renderProgress = Object.fromEntries(
     Object.entries(state.progress)
       .filter(([key]) => key.startsWith('render:'))
@@ -75,16 +81,17 @@ export default function App() {
           </span>
           <InstallPrompt />
           <button
-            className="btn min-h-36 px-3 py-1 text-xs"
+            className="btn h-11 w-11 shrink-0 px-0 text-base"
             onClick={() => state.setTheme(state.theme === 'dark' ? 'light' : 'dark')}
             aria-label="Toggle theme"
+            title={state.theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
           >
             {state.theme === 'dark' ? '☀' : '☾'}
           </button>
         </div>
       </header>
 
-      <main className="mx-auto max-w-[1500px] space-y-4 px-3 pt-4 pb-24 sm:px-5 sm:pb-4">
+      <main className="mx-auto max-w-[1500px] space-y-4 px-3 py-4 sm:px-5">
         <UnsupportedNotice caps={state.caps} />
 
         {state.error ? (
@@ -121,7 +128,9 @@ export default function App() {
                 type="file"
                 accept="video/*"
                 aria-label="Replace video file"
+                aria-hidden="true"
                 className="sr-only"
+                tabIndex={-1}
                 disabled={state.isAnalyzing || state.isRendering}
                 onChange={(event) => {
                   const file = event.target.files?.[0];
@@ -130,12 +139,31 @@ export default function App() {
                 }}
               />
               <button
-                className="btn min-h-36 px-3 py-1 text-xs"
+                className="btn px-3 py-1 text-xs"
                 disabled={state.isAnalyzing || state.isRendering}
                 onClick={() => replaceInputRef.current?.click()}
               >
                 Replace video
               </button>
+              {state.clips.length > 0 ? (
+                <div className="ml-auto flex shrink-0 flex-col items-end gap-1">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-[var(--accent-2)]">
+                    Step 3 · Export
+                  </span>
+                  <div className="flex gap-2">
+                    {state.isRendering ? (
+                      <button className="btn" onClick={state.cancelRender}>Cancel</button>
+                    ) : null}
+                    <button
+                      className="btn btn-primary min-w-36"
+                      disabled={state.isRendering || selectedCount === 0}
+                      onClick={() => void state.renderSelected()}
+                    >
+                      {state.isRendering ? 'Exporting…' : exportLabel}
+                    </button>
+                  </div>
+                </div>
+              ) : null}
             </div>
 
             {state.isAnalyzing ? (
@@ -143,8 +171,8 @@ export default function App() {
             ) : null}
 
             {state.clips.length > 0 ? (
-              <div className="grid gap-4 lg:grid-cols-[minmax(260px,340px)_minmax(0,1fr)]">
-                <div className="order-2 lg:order-1">
+              <>
+                <div className="panel p-3">
                   <ClipList
                     clips={state.clips}
                     selectedId={state.selectedClipId}
@@ -153,40 +181,26 @@ export default function App() {
                     onSelect={state.selectClip}
                     onToggle={state.toggleSelected}
                   />
-                  <div className="panel mt-3 p-3">
-                    <button
-                      className="btn btn-primary w-full"
-                      disabled={state.isRendering}
-                      onClick={() => void state.renderSelected()}
-                    >
-                      {state.isRendering ? 'Exporting…' : `Export ${state.selectedClipIds.length} clip(s)`}
-                    </button>
-                    {state.isRendering ? (
-                      <button className="btn mt-2 w-full" onClick={state.cancelRender}>Cancel export</button>
-                    ) : null}
-                    <p className="muted mt-2 text-xs">
-                      One clip at a time. Output is 9:16 MP4; iOS uses Share, others download.
-                    </p>
-                  </div>
+                  <p className="muted mt-2 text-xs">
+                    One clip at a time. Output is 9:16 MP4; iOS uses Share, others download.
+                  </p>
                 </div>
 
-                <div className="order-1 lg:order-2">
-                  {selectedClip && state.meta && state.objectUrl ? (
-                    <ClipEditor
-                      clip={selectedClip}
-                      meta={state.meta}
-                      objectUrl={state.objectUrl}
-                      transcriptWords={state.transcript?.words ?? selectedClip.words}
-                      trackProgress={state.progress[`track:${selectedClip.id}`]}
-                      onUpdate={(patch) => state.updateClip(selectedClip.id, patch)}
-                      onWordChange={(index, text) => state.updateWord(selectedClip.id, index, text)}
-                      onTrack={() => void state.trackClip(selectedClip.id)}
-                    />
-                  ) : (
-                    <div className="panel p-6 text-center text-sm">Select a clip to edit it.</div>
-                  )}
-                </div>
-              </div>
+                {selectedClip && state.meta && state.objectUrl ? (
+                  <ClipEditor
+                    clip={selectedClip}
+                    meta={state.meta}
+                    objectUrl={state.objectUrl}
+                    transcriptWords={state.transcript?.words ?? selectedClip.words}
+                    trackProgress={state.progress[`track:${selectedClip.id}`]}
+                    onUpdate={(patch) => state.updateClip(selectedClip.id, patch)}
+                    onWordChange={(index, text) => state.updateWord(selectedClip.id, index, text)}
+                    onTrack={() => void state.trackClip(selectedClip.id)}
+                  />
+                ) : (
+                  <div className="panel p-6 text-center text-sm">Select a clip to edit it.</div>
+                )}
+              </>
             ) : null}
 
             {state.rendered.length > 0 ? (
@@ -201,6 +215,7 @@ export default function App() {
                 </ul>
               </section>
             ) : null}
+
           </>
         )}
       </main>

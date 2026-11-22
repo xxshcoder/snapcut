@@ -136,6 +136,8 @@ Fill each cell with `Pass`, `Fail`, or `Blocked (reason)`.
 | Raw `fetch()` rejection | `/transcribe` and `/highlights` now surface an actionable `NetworkError` instead of "Failed to fetch" |
 | Local mock mode | `MOCK_PROVIDERS=true` in gitignored `worker/.dev.vars`; `/transcribe` and `/highlights` return `200` with `X-Snapcut-Mock: true` without API keys; provider `fetch` is never called |
 | Blob download lifetime | Anchor kept 60 s and object URL 5 min so large Chrome downloads are not aborted; e2e export still passes |
+| UI usability audit | Playwright measured 1280×900 and 390×844: no horizontal overflow, all visible buttons ≥44 px, theme toggle 44×44, export button top-right, full-width clip strip, source and preview boxes equal height with content-fit widths |
+| Trim controls | Playwright verified typing a start time, dragging the end handle, and clicking the timeline all update the clip range |
 | `npx tsc -p tsconfig.worker.json --noEmit` | Pass |
 | `npx wrangler deploy --dry-run` from `worker/` | Pass |
 | `grep` API-key names/prefixes in `dist/` | No matches |

@@ -33,6 +33,9 @@ export function FilePicker({ disabled, isMobile, onFile }: Props) {
       aria-label="Choose a video file"
     >
       <div className="text-4xl" aria-hidden="true">🎬</div>
+      <span className="rounded-full border border-[var(--border)] px-3 py-1 text-xs font-semibold uppercase tracking-wide text-[var(--accent-2)]">
+        Step 1 · Choose
+      </span>
       <h2 className="text-xl font-bold">Pick a video to clip</h2>
       <p className="muted max-w-md text-sm">
         Your video stays on this device. Only compressed audio and transcript text are sent for analysis.
@@ -42,7 +45,9 @@ export function FilePicker({ disabled, isMobile, onFile }: Props) {
         type="file"
         accept="video/*"
         aria-label="Choose a video file"
+        aria-hidden="true"
         className="sr-only"
+        tabIndex={-1}
         disabled={disabled}
         onChange={(event) => {
           const file = event.target.files?.[0];

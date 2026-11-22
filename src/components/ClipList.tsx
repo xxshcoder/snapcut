@@ -14,39 +14,47 @@ function duration(seconds: number): string {
   return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, '0')}`;
 }
 
+/** Horizontal clip picker: keeps every clip reachable while the editor owns the main area. */
 export function ClipList({ clips, selectedId, selectedIds, renderProgress, onSelect, onToggle }: Props) {
   return (
-    <section className="panel overflow-hidden" aria-label="Suggested clips">
-      <header className="flex items-center justify-between border-b border-[var(--border)] px-3 py-2">
-        <h2 className="text-sm font-bold">Suggested clips ({clips.length})</h2>
-        <span className="muted text-xs">Tap to preview</span>
-      </header>
-      <ul className="max-h-80 divide-y divide-[var(--border)] overflow-y-auto lg:max-h-[calc(100vh-15rem)]">
+    <section aria-label="Suggested clips">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-xs font-semibold uppercase tracking-wide text-[var(--accent-2)]">Step 2 · Review</p>
+          <h2 className="truncate text-sm font-bold">Suggested clips ({clips.length})</h2>
+        </div>
+        <span className="muted hidden text-xs sm:inline">Tap a clip to preview · tick to export</span>
+      </div>
+      <ul className="flex gap-2 overflow-x-auto pb-1">
         {clips.map((clip, index) => {
           const progress = renderProgress[`render:${clip.id}`];
+          const isActive = selectedId === clip.id;
           return (
-            <li key={clip.id} className={selectedId === clip.id ? 'bg-[var(--surface-2)]' : ''}>
-              <div className="flex items-start gap-2 p-3">
-                <input
-                  type="checkbox"
-                  className="mt-1 h-5 w-5 shrink-0 accent-[var(--accent)]"
-                  checked={selectedIds.includes(clip.id)}
-                  onChange={() => onToggle(clip.id)}
-                  aria-label={`Export clip ${index + 1}`}
-                />
-                <button className="min-w-0 flex-1 text-left" onClick={() => onSelect(clip.id)}>
-                  <span className="block truncate text-sm font-semibold">{clip.title || `Clip ${index + 1}`}</span>
-                  <span className="muted mt-0.5 block text-xs">
-                    {duration(clip.start)} → {duration(clip.end)} · {Math.round(clip.end - clip.start)}s ·{' '}
-                    {clip.score}/100
+            <li
+              key={clip.id}
+              className={`flex min-w-[210px] shrink-0 items-start gap-2 rounded-lg border p-2 ${
+                isActive ? 'border-[var(--accent)] bg-[var(--surface-2)]' : 'border-[var(--border)]'
+              }`}
+            >
+              <input
+                type="checkbox"
+                className="mt-0.5 h-5 w-5 shrink-0 accent-[var(--accent)]"
+                checked={selectedIds.includes(clip.id)}
+                onChange={() => onToggle(clip.id)}
+                aria-label={`Export clip ${index + 1}`}
+              />
+              <button className="min-h-11 min-w-0 flex-1 text-left" onClick={() => onSelect(clip.id)}>
+                <span className="block truncate text-sm font-semibold">{clip.title || `Clip ${index + 1}`}</span>
+                <span className="muted mt-0.5 block text-xs">
+                  {duration(clip.start)} → {duration(clip.end)} · {Math.round(clip.end - clip.start)}s ·{' '}
+                  {clip.score}/100
+                </span>
+                {progress ? (
+                  <span className="mt-1 block text-xs text-[var(--accent-2)]">
+                    {progress.phase} {Math.round(progress.percent)}%
                   </span>
-                  {progress ? (
-                    <span className="mt-1 block text-xs text-[var(--accent-2)]">
-                      {progress.phase} {Math.round(progress.percent)}%
-                    </span>
-                  ) : null}
-                </button>
-              </div>
+                ) : null}
+              </button>
             </li>
           );
         })}

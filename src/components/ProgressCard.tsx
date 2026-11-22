@@ -32,7 +32,7 @@ export function ProgressCard({ progress, onCancel }: Props) {
       <div className="mt-3 flex items-center justify-between">
         <span className="muted text-xs">Keep this screen open while we work.</span>
         {onCancel ? (
-          <button className="btn min-h-36 px-3 py-1 text-xs" onClick={onCancel}>
+          <button className="btn px-3 py-1 text-xs" onClick={onCancel}>
             Cancel
           </button>
         ) : null}

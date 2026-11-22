@@ -181,7 +181,7 @@ test('load -> mocked transcription -> mocked highlights -> export one 9:16 clip'
 
   await test.step('exports one clip and inspects the downloaded MP4', async () => {
     const downloadPromise = page.waitForEvent('download', { timeout: 120_000 });
-    await page.getByRole('button', { name: /Export 1 clip\(s\)/ }).click();
+    await page.getByRole('button', { name: /^Export 1 clip$/ }).click();
     const download = await downloadPromise;
 
     expect(download.suggestedFilename()).toBe('smoke-transcript.mp4-clip-0-24.mp4');
