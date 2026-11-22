@@ -30,7 +30,11 @@ export async function requestHighlights(windows: Window[], options: HighlightOpt
     });
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') throw new CancelledError();
-    throw new NetworkError();
+    throw new NetworkError(
+      error instanceof TypeError
+        ? 'Cannot reach the analysis API. Start the Worker and check the app origin.'
+        : 'Network request failed.',
+    );
   }
   if (!response.ok) throw new ApiError(response.status, `Highlights request failed (HTTP ${response.status}).`);
   return highlightsResponseSchema.parse(await response.json()).clips;

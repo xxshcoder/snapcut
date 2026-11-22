@@ -15,7 +15,8 @@ export interface Env {
 }
 
 export interface WorkerConfig {
-  allowedOrigin: string;
+  /** Exact origins permitted by CORS. Comma-separated in the Cloudflare var. */
+  allowedOrigins: Set<string>;
   maxAudioBytes: number;
   rateLimitPerMin: number;
   dailyJobCap: number;
@@ -33,7 +34,12 @@ function positiveInt(value: string | number | undefined, fallback: number): numb
 /** Cloudflare vars are strings, so parse them defensively with sane defaults. */
 export function readConfig(env: Env): WorkerConfig {
   return {
-    allowedOrigin: env.ALLOWED_ORIGIN ?? '',
+    allowedOrigins: new Set(
+      (env.ALLOWED_ORIGIN ?? '')
+        .split(',')
+        .map((origin) => origin.trim())
+        .filter(Boolean),
+    ),
     maxAudioBytes: positiveInt(env.MAX_AUDIO_BYTES, DEFAULT_MAX_AUDIO_BYTES),
     rateLimitPerMin: positiveInt(env.RATE_LIMIT_PER_MIN, DEFAULT_RATE_LIMIT_PER_MIN),
     dailyJobCap: positiveInt(env.DAILY_JOB_CAP, DEFAULT_DAILY_JOB_CAP),

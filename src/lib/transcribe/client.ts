@@ -67,8 +67,15 @@ export async function uploadSegment(
       };
     } catch (error) {
       if (isCancelled(error)) throw error;
-      lastError = error;
-      const retryable = error instanceof ApiRateLimitedError || error instanceof NetworkError || error instanceof ApiError && error.status >= 500;
+      // A bare TypeError means fetch() never got a response: Worker down,
+      // CORS/origin rejected, or a wrong VITE_API_BASE_URL. Surface it as a
+      // retryable, actionable network error instead of "Failed to fetch".
+      const normalized =
+        error instanceof TypeError
+          ? new NetworkError('Cannot reach the analysis API. Start the Worker and check the app origin.')
+          : error;
+      lastError = normalized;
+      const retryable = normalized instanceof ApiRateLimitedError || normalized instanceof NetworkError || normalized instanceof ApiError && normalized.status >= 500;
       const retryAfter = error instanceof ApiRateLimitedError ? error.retryAfterSec : undefined;
       if (!retryable || attempt === API.maxRetries) break;
       await sleep(retryDelay(retryAfter, attempt), signal);

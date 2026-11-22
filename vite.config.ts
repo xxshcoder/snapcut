@@ -53,6 +53,13 @@ export default defineConfig({
       '/highlights': 'http://127.0.0.1:8787',
     },
   },
+  preview: {
+    proxy: {
+      '/health': 'http://127.0.0.1:8787',
+      '/transcribe': 'http://127.0.0.1:8787',
+      '/highlights': 'http://127.0.0.1:8787',
+    },
+  },
   test: {
     environment: 'node',
     setupFiles: ['./tests/setup.ts'],

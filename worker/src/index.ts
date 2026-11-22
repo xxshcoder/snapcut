@@ -16,7 +16,7 @@ export { RateLimiter };
 type ResponseHeaders = Record<string, string>;
 
 function corsHeaders(origin: string | null, config: WorkerConfig): ResponseHeaders {
-  if (!origin || origin !== config.allowedOrigin) return {};
+  if (!origin || !config.allowedOrigins.has(origin)) return {};
   return {
     'Access-Control-Allow-Origin': origin,
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
@@ -155,7 +155,7 @@ export async function fetch(request: Request, env: Env): Promise<Response> {
 
   // Strict CORS: requests declaring a foreign Origin are rejected outright.
   // Requests without Origin (curl, same-origin) are allowed but get no CORS headers.
-  if (origin && origin !== config.allowedOrigin) {
+  if (origin && !config.allowedOrigins.has(origin)) {
     return errorResponse('forbidden', 'Origin not allowed', 403, request, config);
   }
   if (request.method === 'OPTIONS') {

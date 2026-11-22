@@ -131,6 +131,9 @@ Fill each cell with `Pass`, `Fail`, or `Blocked (reason)`.
 | PWA installability | Manifest, 192/512 icons, theme color and generated service worker verified in `dist/`; the browser tool does not expose Lighthouse's PWA category |
 | Worker `GET /health` via `wrangler dev --local` | `200 {"ok":true}` |
 | Worker `GET /health` with disallowed `Origin` | `403 {"error":"Origin not allowed","code":"forbidden"}` |
+| Worker allowed local origins | `localhost:5173`, `127.0.0.1:5173`, `localhost:4173`, `127.0.0.1:4173` all return `200` with CORS headers; unknown origin still `403` |
+| Vite preview proxy | `/transcribe`, `/highlights`, `/health` proxied to the Worker in `npm run preview` as well as `npm run dev` |
+| Raw `fetch()` rejection | `/transcribe` and `/highlights` now surface an actionable `NetworkError` instead of "Failed to fetch" |
 | `npx tsc -p tsconfig.worker.json --noEmit` | Pass |
 | `npx wrangler deploy --dry-run` from `worker/` | Pass |
 | `grep` API-key names/prefixes in `dist/` | No matches |

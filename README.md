@@ -26,7 +26,20 @@ cd worker
 wrangler dev           # http://localhost:8787
 ```
 
-The Vite dev server forwards `/transcribe`, `/highlights` and `/health` to the Worker (see `vite.config.ts`). In production set `VITE_API_BASE_URL` to your Worker origin, or deploy both on the same Cloudflare account so requests are same-origin.
+The Vite dev server forwards `/transcribe`, `/highlights` and `/health` to the Worker (see `vite.config.ts`). The same proxy is configured for `npm run preview`. In production set `VITE_API_BASE_URL` to your Worker origin, or deploy both on the same Cloudflare account so requests are same-origin.
+
+### Troubleshooting: "Cannot reach the analysis API" / "Failed to fetch"
+
+This means the browser never received an HTTP response from `/transcribe` or `/highlights`.
+
+1. Make sure the Worker is running in a second terminal:
+   ```bash
+   cd worker && npx wrangler dev --local --port 8787
+   ```
+   Verify with `curl http://127.0.0.1:8787/health` → `{"ok":true}`.
+2. Use an allowed origin. Local development allows `http://localhost:5173`, `http://127.0.0.1:5173`, `http://localhost:4173` and `http://127.0.0.1:4173` via the comma-separated `ALLOWED_ORIGIN` var in `worker/wrangler.toml`. Change it to your deployed app origin and redeploy the Worker for production.
+3. Leave `VITE_API_BASE_URL` empty when using the Vite dev/preview proxy. If you set it to a dead Worker URL, `fetch()` will reject before CORS.
+4. Restart both servers after changing `ALLOWED_ORIGIN` or `.env`.
 
 ### Scripts
 
