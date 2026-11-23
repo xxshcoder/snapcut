@@ -1,5 +1,5 @@
 import { CancelledError, SnapcutError, toFriendlyError } from '../errors';
-import type { RenderRequest, TrackRequest, WorkerRequest, WorkerResponse } from '../../workers/messages';
+import type { FilmstripRequest, RenderRequest, TrackRequest, WorkerRequest, WorkerResponse } from '../../workers/messages';
 
 type Pending = {
   resolve: (value: unknown) => void;
@@ -92,6 +92,10 @@ export function createRenderWorker(): JobWorker<Extract<RenderRequest, { type: '
 
 export function createTrackWorker(): JobWorker<Extract<TrackRequest, { type: 'start' }>> {
   return new JobWorker(() => new Worker(new URL('../../workers/track.worker.ts', import.meta.url), { type: 'module' }));
+}
+
+export function createFilmstripWorker(): JobWorker<Extract<FilmstripRequest, { type: 'start' }>> {
+  return new JobWorker(() => new Worker(new URL('../../workers/filmstrip.worker.ts', import.meta.url), { type: 'module' }));
 }
 
 export function friendlyWorkerError(error: unknown): string {

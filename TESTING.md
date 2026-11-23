@@ -49,6 +49,33 @@ track label's top edge matches its lane. Two more tests drag the timeline trim
 handles and assert the real clip start/end values change, and trigger a notice
 to confirm it is a floating overlay that does not change the editor's height.
 
+### Editing regression test (T9.3–T9.9)
+
+`e2e/editing.spec.ts` uses the same mocked pipeline and covers the new editing
+surface:
+
+- A title edit and a trim are undone with `Ctrl+Z` and reapplied with
+  `Ctrl+Shift+Z`, proving the history stack works for both typing and drags.
+- Pressing `S` with the playhead inside the clip splits it; duplicate/delete
+  buttons and undo/redo buttons keep the clip count and selection consistent.
+- A transcript with deliberately long pauses produces multiple shorter clips
+  through "Remove silences", and undo restores the original single clip.
+- Audio, speed and caption-layout changes are applied to the real export; a 2×
+  speed clip exports at roughly half the source duration (verified by parsing
+  the MP4 `mvhd` duration).
+- The worker-decoded filmstrip is the top row of the single timeline track and
+  is wider than its lane, so it swipes/scrolls horizontally. Clicking a frame
+  seeks to it, enables `Cut at frame`, and the cut creates two clips.
+- The single clip bar is the only move/trim surface; dragging its start handle
+  updates `Clip start`. Export still works with no clip checkbox ticked.
+- A transcript with no removable pause produces an explicit no-op notice when
+  "Remove silences" is pressed.
+
+`e2e/layout.spec.ts` also verifies that the ruler scrubs, timeline zoom and
+select-all/clear work, clip badges appear, preview audio can be auditioned, the
+9:16 export inset expands, scrub ticks have unique labels, and transport
+controls are not duplicated.
+
 ## Manual device matrix (T10.2)
 
 ### Devices / browsers

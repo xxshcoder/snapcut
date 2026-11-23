@@ -10,6 +10,10 @@ type Props = {
   exportLabel: string;
   isExporting: boolean;
   canExport: boolean;
+  canUndo: boolean;
+  canRedo: boolean;
+  onUndo: () => void;
+  onRedo: () => void;
   onCancel: () => void;
   theme: 'dark' | 'light';
   onToggleTheme: () => void;
@@ -23,6 +27,10 @@ export function TopBar({
   exportLabel,
   isExporting,
   canExport,
+  canUndo,
+  canRedo,
+  onUndo,
+  onRedo,
   onCancel,
   theme,
   onToggleTheme,
@@ -61,6 +69,27 @@ export function TopBar({
       </div>
 
       <div className="flex shrink-0 items-center gap-3">
+        <div className="hidden items-center gap-1 rounded-2xl border border-[var(--divider)] bg-black/20 p-1 sm:flex">
+          <button
+            className="flex h-9 w-9 items-center justify-center rounded-xl text-white/80 transition-colors hover:bg-white/10 hover:text-white disabled:pointer-events-none disabled:opacity-35"
+            onClick={onUndo}
+            disabled={!canUndo}
+            aria-label="Undo"
+            title="Undo (Ctrl/Cmd+Z)"
+          >
+            <Icon name="undo" size={18} />
+          </button>
+          <button
+            className="flex h-9 w-9 items-center justify-center rounded-xl text-white/80 transition-colors hover:bg-white/10 hover:text-white disabled:pointer-events-none disabled:opacity-35"
+            onClick={onRedo}
+            disabled={!canRedo}
+            aria-label="Redo"
+            title="Redo (Ctrl/Cmd+Shift+Z)"
+          >
+            <Icon name="redo" size={18} />
+          </button>
+        </div>
+
         <div className="relative" onBlur={closeMenu}>
           <button
             className="icon-btn"

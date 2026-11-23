@@ -27,7 +27,16 @@ export type IconName =
   | 'music'
   | 'close'
   | 'target'
-  | 'cc';
+  | 'cc'
+  | 'undo'
+  | 'redo'
+  | 'copy'
+  | 'silence'
+  | 'volume'
+  | 'volumeOff'
+  | 'fullscreen'
+  | 'frameBack'
+  | 'frameForward';
 
 const PATHS: Record<IconName, ReactNode> = {
   layers: (
@@ -155,6 +164,59 @@ const PATHS: Record<IconName, ReactNode> = {
     <>
       <rect x="2" y="5" width="20" height="14" rx="3" />
       <path d="M10 10a3 3 0 1 0 0 4M18 10a3 3 0 1 0 0 4" />
+    </>
+  ),
+  undo: (
+    <>
+      <path d="M4 8h10a6 6 0 0 1 0 12H9" />
+      <path d="m4 8 4-4M4 8l4 4" />
+    </>
+  ),
+  redo: (
+    <>
+      <path d="M20 8H10a6 6 0 0 0 0 12h5" />
+      <path d="m20 8-4-4m4 4-4 4" />
+    </>
+  ),
+  copy: (
+    <>
+      <rect x="8" y="8" width="12" height="12" rx="2" />
+      <path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" />
+    </>
+  ),
+  silence: (
+    <>
+      <path d="M3 12h3l2-5 3 10 3-8 2 3h5" />
+      <path d="M4 20 20 4" />
+    </>
+  ),
+  volume: (
+    <>
+      <path d="M4 9v6h4l5 4V5L8 9H4Z" />
+      <path d="M17 9a4 4 0 0 1 0 6" />
+    </>
+  ),
+  volumeOff: (
+    <>
+      <path d="M4 9v6h4l5 4V5L8 9H4Z" />
+      <path d="M17 9l5 6m0-6-5 6" />
+    </>
+  ),
+  fullscreen: (
+    <>
+      <path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5" />
+    </>
+  ),
+  frameBack: (
+    <>
+      <path d="M18 5v14L8 12l10-7Z" />
+      <path d="M5 5v14" />
+    </>
+  ),
+  frameForward: (
+    <>
+      <path d="M6 5v14l10-7L6 5Z" />
+      <path d="M19 5v14" />
     </>
   ),
 };

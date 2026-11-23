@@ -1,5 +1,6 @@
 import { FFMPEG_CORE_BASE } from '../../config';
 import { cropToPixels } from './crop';
+import { clipFade, clipOutputDuration, clipSpeed, clipVolume } from './clipOptions';
 import type { RenderProfile, RenderResult } from './renderClip';
 import type { Clip } from '../../types';
 
@@ -34,8 +35,23 @@ export async function renderWithFfmpeg(
     const y = Math.round(rect.top / 2) * 2;
     const w = Math.max(2, Math.round(rect.width / 2) * 2);
     const h = Math.max(2, Math.round(rect.height / 2) * 2);
-    const filter = `crop=${w}:${h}:${x}:${y},scale=${profile.width}:${profile.height}`;
-    const exitCode = await ffmpeg.exec([
+    const speed = clipSpeed(clip);
+    const outputDuration = clipOutputDuration(clip);
+    let filter = `crop=${w}:${h}:${x}:${y},scale=${profile.width}:${profile.height}`;
+    if (speed !== 1) filter += `,setpts=PTS/${speed}`;
+
+    const audioFilters: string[] = [];
+    const volume = clip.muted ? 0 : clipVolume(clip);
+    if (volume !== 1) audioFilters.push(`volume=${volume.toFixed(3)}`);
+    if (speed !== 1) audioFilters.push(`atempo=${speed}`);
+    const fadeIn = clipFade(clip, 'fadeInSec');
+    const fadeOut = clipFade(clip, 'fadeOutSec');
+    if (fadeIn > 0) audioFilters.push(`afade=t=in:st=0:d=${fadeIn.toFixed(3)}`);
+    if (fadeOut > 0) {
+      audioFilters.push(`afade=t=out:st=${Math.max(0, outputDuration - fadeOut).toFixed(3)}:d=${fadeOut.toFixed(3)}`);
+    }
+
+    const args = [
       '-ss', clip.start.toFixed(3),
       '-i', `/input/${file.name}`,
       '-t', (clip.end - clip.start).toFixed(3),
@@ -48,8 +64,10 @@ export async function renderWithFfmpeg(
       '-b:a', `${Math.round(profile.audioBitrateBps / 1000)}k`,
       '-movflags', '+faststart',
       '-y',
-      'out.mp4',
-    ]);
+    ];
+    if (audioFilters.length > 0) args.push('-af', audioFilters.join(','));
+    args.push('out.mp4');
+    const exitCode = await ffmpeg.exec(args);
     if (exitCode !== 0) throw new Error(`ffmpeg exited with code ${exitCode}.`);
     const data = await ffmpeg.readFile('out.mp4');
     const bytes = data instanceof Uint8Array ? data : new TextEncoder().encode(String(data));

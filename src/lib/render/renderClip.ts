@@ -14,6 +14,8 @@ import { createInput } from '../fileSource';
 import { createOutputSink, type OutputSink } from '../storage/opfs';
 import { drawCaptions, type Canvas2D } from './captions';
 import { cropToPixels } from './crop';
+import { clipOutputDuration, clipSpeed } from './clipOptions';
+import { hasAudioEffects, processAudioSample } from './audioEffects';
 import type { Clip } from '../../types';
 
 export type RenderProfile = {
@@ -109,7 +111,9 @@ export async function renderClip(file: File, clip: Clip, options: RenderOptions 
     if (audioTrack && (await audioTrack.canDecode())) output.addAudioTrack(audioSource);
     await output.start();
 
-    const duration = Math.max(0.01, clip.end - clip.start);
+    const duration = clipOutputDuration(clip);
+    const speed = clipSpeed(clip);
+    const audioEffects = hasAudioEffects(clip);
 
     // Audio first: it has a much smaller footprint than video, so packet buffering stays low.
     if (audioTrack && (await audioTrack.canDecode())) {
@@ -121,10 +125,16 @@ export async function renderClip(file: File, clip: Clip, options: RenderOptions 
           // Compute the offset before setTimestamp(): afterwards the sample's
           // timestamp is already relative to the clip (i.e. close to zero).
           const relative = Math.max(0, sample.timestamp - clip.start);
-          sample.setTimestamp(relative);
-          await audioSource.add(sample);
+          if (audioEffects) {
+            const processed = processAudioSample(sample, clip, relative);
+            await audioSource.add(processed);
+            processed.close();
+          } else {
+            sample.setTimestamp(relative);
+            await audioSource.add(sample);
+          }
           sample.close();
-          options.onProgress?.(Math.min(45, (relative / duration) * 45));
+          options.onProgress?.(Math.min(45, (relative / speed / duration) * 45));
         }
       } finally {
         await iterator.return?.();
@@ -138,31 +148,61 @@ export async function renderClip(file: File, clip: Clip, options: RenderOptions 
       fit: 'fill',
       poolSize: 2,
     });
-    const frames = frameSink.canvases(clip.start, clip.end);
-    try {
-      for await (const { canvas: frame, timestamp, duration: frameDuration } of frames) {
-        if (options.signal?.aborted) throw new CancelledError();
-        const crop = cropToPixels(clip.crop, sourceW, sourceH, timestamp);
-        ctx.drawImage(
-          frame as CanvasImageSource,
-          crop.left,
-          crop.top,
-          crop.width,
-          crop.height,
-          0,
-          0,
-          profile.width,
-          profile.height,
-        );
-        const relative = Math.max(0, timestamp - clip.start);
-        if (clip.captionsEnabled) {
-          drawCaptions(ctx, clip.words, relative, profile.width, profile.height, clip.captionStyle);
-        }
-        await videoSource.add(relative, frameDuration);
-        options.onProgress?.(45 + Math.min(55, (relative / duration) * 55));
+    const writeFrame = async (
+      frame: HTMLCanvasElement | OffscreenCanvas,
+      sourceTime: number,
+      outputTime: number,
+      frameDuration: number,
+    ): Promise<void> => {
+      const crop = cropToPixels(clip.crop, sourceW, sourceH, sourceTime);
+      ctx.drawImage(
+        frame as CanvasImageSource,
+        crop.left,
+        crop.top,
+        crop.width,
+        crop.height,
+        0,
+        0,
+        profile.width,
+        profile.height,
+      );
+      if (clip.captionsEnabled) {
+        // Words keep source-absolute timestamps, so captions must be looked up
+        // with the source time even when the output is time-stretched.
+        drawCaptions(ctx, clip.words, sourceTime, profile.width, profile.height, clip.captionStyle, clip.captionLayout);
       }
-    } finally {
-      await frames.return?.();
+      await videoSource.add(outputTime, frameDuration);
+      options.onProgress?.(45 + Math.min(55, (outputTime / duration) * 55));
+    };
+
+    if (speed === 1) {
+      const frames = frameSink.canvases(clip.start, clip.end);
+      try {
+        for await (const { canvas: frame, timestamp, duration: frameDuration } of frames) {
+          if (options.signal?.aborted) throw new CancelledError();
+          await writeFrame(frame, timestamp, Math.max(0, timestamp - clip.start), frameDuration);
+        }
+      } finally {
+        await frames.return?.();
+      }
+    } else {
+      const count = Math.max(1, Math.round(duration * RENDER.frameRate));
+      const sourceTimes = Array.from({ length: count }, (_, index) =>
+        Math.min(clip.end - 0.001, clip.start + (index / RENDER.frameRate) * speed),
+      );
+      const frames = frameSink.canvasesAtTimestamps(sourceTimes);
+      try {
+        let index = 0;
+        for await (const wrapped of frames) {
+          if (options.signal?.aborted) throw new CancelledError();
+          if (wrapped) {
+            await writeFrame(wrapped.canvas, wrapped.timestamp, index / RENDER.frameRate, 1 / RENDER.frameRate);
+          }
+          index += 1;
+        }
+      } finally {
+        await frames.return?.();
+      }
     }
     videoSource.close();
     await output.finalize();

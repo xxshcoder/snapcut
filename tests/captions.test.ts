@@ -165,4 +165,27 @@ describe('drawCaptions', () => {
     expect(minimal.state.calls.filter((call) => call === 'fillRect')).toHaveLength(1);
     expect(minimal.state.fills.every((fill) => fill.fillStyle === '#f5f5f5')).toBe(true);
   });
+
+  it('honours font size, position, background and outline options', () => {
+    const all = words(['one', 'two', 'three', 'four']);
+    const styled = createStub();
+    const layout = drawCaptions(
+      styled.ctx,
+      all,
+      2.5,
+      720,
+      1280,
+      'bold-pop',
+      { fontSize: 1.5, position: 0.4, background: true, outline: 2 },
+    );
+
+    expect(layout?.fontSize).toBeGreaterThan(45);
+    expect(layout?.y).toBeCloseTo(1280 * 0.4, 5);
+    expect(styled.state.calls.filter((call) => call === 'fillRect')).toHaveLength(1);
+    expect((styled.ctx as unknown as { lineWidth: number }).lineWidth).toBeCloseTo(layout!.fontSize * 0.18 * 2, 5);
+
+    const plain = createStub();
+    drawCaptions(plain.ctx, all, 2.5, 720, 1280, 'bold-pop');
+    expect(plain.state.calls.filter((call) => call === 'fillRect')).toHaveLength(0);
+  });
 });

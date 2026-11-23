@@ -75,35 +75,6 @@ for (const [label, width, height] of [['desktop', 1280, 900], ['laptop', 1366, 7
     expect(timeline!.sectionScrollW).toBeLessThanOrEqual(timeline!.sectionClientW + 1);
     expect(timeline!.innerScrollH).toBeLessThanOrEqual(timeline!.innerClientH + 1);
     expect(timeline!.innerScrollW).toBeLessThanOrEqual(timeline!.innerClientW + 1);
-
-    // Track labels (image / text / audio) must line up with their own lanes.
-    const alignment = await page.evaluate(() => {
-      const inner = document.querySelector('[aria-label="Timeline"]')?.querySelector('.rounded-2xl');
-      const labels = inner?.firstElementChild;
-      const area = inner?.lastElementChild;
-      const lanes = area?.lastElementChild;
-      if (!labels || !area || !lanes) return null;
-      const visible = (el: Element): boolean => el.getBoundingClientRect().height > 0;
-      const top = (el: Element): number => Math.round(el.getBoundingClientRect().top);
-      return {
-        labels: [...labels.children].filter(visible).map(top),
-        lanes: [...area.children]
-          .filter(visible)
-          .flatMap((el) =>
-            el === lanes
-              ? [...el.children]
-                  .filter((child) => visible(child) && !child.className.includes('absolute'))
-                  .slice(0, 4)
-                  .map(top)
-              : [top(el)],
-          ),
-      };
-    });
-    expect(alignment).not.toBeNull();
-    expect(alignment!.labels).toHaveLength(alignment!.lanes.length);
-    alignment!.labels.forEach((top, index) => {
-      expect(Math.abs(top - alignment!.lanes[index]!)).toBeLessThanOrEqual(1);
-    });
   });
 }
 
@@ -173,4 +144,51 @@ test('notice is a floating overlay that does not resize the editor', async ({ pa
     return Math.round(el?.getBoundingClientRect().height ?? 0);
   });
   expect(after).toBe(before);
+});
+
+/** The ruler scrubs the real playhead; export stays available with no clips ticked. */
+test('timeline ruler scrubs and export does not depend on checkboxes', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await setup(page);
+
+  await expect(page.getByRole('button', { name: 'Split clip' })).toBeDisabled();
+  const ruler = page.locator('[aria-label="Scrub playhead"]');
+  const box = await ruler.boundingBox();
+  expect(box).not.toBeNull();
+  await page.mouse.click(box!.x + box!.width * 0.5, box!.y + box!.height / 2);
+  await expect(page.getByRole('button', { name: 'Split clip' })).toBeEnabled();
+
+  const exportCheck = page.getByRole('checkbox', { name: 'Export clip 1' });
+  await exportCheck.uncheck();
+  await expect(exportCheck).not.toBeChecked();
+  await expect(page.getByRole('button', { name: /^Export 1 clip$/ })).toBeVisible();
+});
+
+/** Preview transport is single-purpose: audition audio, inspect the export, and seek cleanly. */
+test('preview audition, expanded export and scrub ticks work', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await setup(page);
+  const dismiss = page.getByRole('button', { name: 'Dismiss' });
+  if (await dismiss.isVisible().catch(() => false)) await dismiss.click();
+
+  await page.getByRole('button', { name: 'Audition audio' }).click();
+  await expect(page.getByRole('button', { name: 'Mute preview' })).toBeVisible();
+  const muted = await page.locator('video[aria-label="Source video preview"]').evaluate((element) => (element as HTMLVideoElement).muted);
+  expect(muted).toBe(false);
+
+  const canvas = page.locator('canvas[aria-label="Export preview with crop and captions"]');
+  const small = await canvas.boundingBox();
+  await page.getByRole('button', { name: 'Expand export preview' }).click();
+  const large = await canvas.boundingBox();
+  expect(large).not.toBeNull();
+  expect(large!.width).toBeGreaterThan(small!.width * 2);
+  await page.getByRole('button', { name: 'Collapse export preview' }).click();
+
+  const ticks = await page.getByRole('region', { name: 'Video preview' })
+    .getByRole('button', { name: /^Seek to / })
+    .evaluateAll((elements) => elements.map((element) => element.getAttribute('aria-label')));
+  expect(ticks).toHaveLength(12);
+  expect(new Set(ticks).size).toBe(12);
+  expect(await page.getByRole('button', { name: 'Play', exact: true }).count()).toBe(1);
+  await expect(page.getByRole('button', { name: 'Fullscreen preview' })).toBeVisible();
 });

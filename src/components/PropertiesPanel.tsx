@@ -4,7 +4,8 @@ import { Icon } from './Icon';
 import { LIMITS } from '../config';
 import { centeredCrop } from '../lib/render/crop';
 import { audioCodecLabel } from '../store/useAppStore';
-import type { CaptionStyleId, Clip, FileMeta, Progress, Word } from '../types';
+import { clipOutputDuration, clipSpeed } from '../lib/render/clipOptions';
+import type { CaptionLayoutOptions, CaptionStyleId, Clip, FileMeta, Progress, Word } from '../types';
 
 type Props = {
   clip: Clip;
@@ -34,6 +35,43 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
       <span className="muted text-xs">{label}</span>
       {children}
     </div>
+  );
+}
+
+function SliderRow({
+  label,
+  value,
+  min,
+  max,
+  step,
+  display,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  display: string;
+  onChange: (value: number) => void;
+}) {
+  return (
+    <label className="block space-y-1">
+      <span className="flex items-center justify-between text-xs">
+        <span className="muted">{label}</span>
+        <span className="font-semibold tabular-nums">{display}</span>
+      </span>
+      <input
+        type="range"
+        className="w-full accent-[var(--accent)]"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        aria-label={label}
+        onChange={(event) => onChange(Number(event.target.value))}
+      />
+    </label>
   );
 }
 
@@ -79,6 +117,10 @@ export function PropertiesPanel({ clip, meta, transcriptWords, trackProgress, on
   };
   const centerCrop = (): void => {
     onUpdate({ crop: { mode: 'static', ...centeredCrop(meta.width, meta.height) } });
+  };
+  const layout = clip.captionLayout ?? {};
+  const setCaptionLayout = (patch: Partial<CaptionLayoutOptions>): void => {
+    onUpdate({ captionLayout: { ...layout, ...patch } });
   };
 
   return (
@@ -134,6 +176,58 @@ export function PropertiesPanel({ clip, meta, transcriptWords, trackProgress, on
               </div>
             </Group>
 
+            {/* Audio — applied to the exported mix, so mute/fade really change the MP4. */}
+            <Group title="Audio">
+              <div className="space-y-2.5">
+                <SliderRow
+                  label="Volume"
+                  value={clip.volume ?? 1}
+                  min={0}
+                  max={1.5}
+                  step={0.05}
+                  display={`${Math.round((clip.volume ?? 1) * 100)}%`}
+                  onChange={(volume) => onUpdate({ volume })}
+                />
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 accent-[var(--accent)]"
+                    checked={clip.muted === true}
+                    aria-label="Mute"
+                    onChange={(event) => onUpdate({ muted: event.target.checked })}
+                  />
+                  Mute audio
+                </label>
+                <Row label="Fade in">
+                  <SecondsInput label="Fade in" value={clip.fadeInSec ?? 0} max={10} onChange={(fadeInSec) => onUpdate({ fadeInSec })} />
+                </Row>
+                <Row label="Fade out">
+                  <SecondsInput label="Fade out" value={clip.fadeOutSec ?? 0} max={10} onChange={(fadeOutSec) => onUpdate({ fadeOutSec })} />
+                </Row>
+              </div>
+            </Group>
+
+            {/* Speed — the playhead preview and export share this value. */}
+            <Group title="Speed">
+              <div className="space-y-2.5">
+                <Row label="Rate">
+                  <select
+                    className="field w-full py-1.5 text-sm"
+                    value={clipSpeed(clip)}
+                    aria-label="Clip speed"
+                    onChange={(event) => onUpdate({ speed: Number(event.target.value) })}
+                  >
+                    {[0.5, 0.75, 1, 1.25, 1.5, 2].map((rate) => (
+                      <option key={rate} value={rate}>{rate}×</option>
+                    ))}
+                  </select>
+                </Row>
+                <Row label="Output">
+                  <div className="chip px-3 py-1.5 text-sm font-semibold tabular-nums">{clipOutputDuration(clip).toFixed(1)} s</div>
+                </Row>
+              </div>
+            </Group>
+
             {/* Captions — toggle and style feed the renderer. */}
             <Group title="Captions">
               <div className="space-y-3">
@@ -150,6 +244,45 @@ export function PropertiesPanel({ clip, meta, transcriptWords, trackProgress, on
                   value={clip.captionStyle}
                   onChange={(style: CaptionStyleId) => onUpdate({ captionStyle: style })}
                 />
+                <div className="space-y-2.5 border-t border-[var(--divider)] pt-2.5">
+                  <SliderRow
+                    label="Caption size"
+                    value={layout.fontSize ?? 1}
+                    min={0.6}
+                    max={1.8}
+                    step={0.05}
+                    display={`${Math.round((layout.fontSize ?? 1) * 100)}%`}
+                    onChange={(fontSize) => setCaptionLayout({ fontSize })}
+                  />
+                  <SliderRow
+                    label="Caption position"
+                    value={layout.position ?? 0.78}
+                    min={0.2}
+                    max={0.95}
+                    step={0.01}
+                    display={`${Math.round((layout.position ?? 0.78) * 100)}%`}
+                    onChange={(position) => setCaptionLayout({ position })}
+                  />
+                  <SliderRow
+                    label="Caption outline"
+                    value={layout.outline ?? 1}
+                    min={0}
+                    max={3}
+                    step={0.1}
+                    display={`${(layout.outline ?? 1).toFixed(1)}×`}
+                    onChange={(outline) => setCaptionLayout({ outline })}
+                  />
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 accent-[var(--accent)]"
+                      checked={layout.background === true}
+                      aria-label="Caption background"
+                      onChange={(event) => setCaptionLayout({ background: event.target.checked })}
+                    />
+                    Caption background
+                  </label>
+                </div>
               </div>
             </Group>
 

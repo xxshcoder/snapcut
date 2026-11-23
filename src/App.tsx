@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { FilePicker } from './components/FilePicker';
 import { PreviewPane } from './components/PreviewPane';
 import { ProgressCard } from './components/ProgressCard';
@@ -6,6 +6,8 @@ import { PropertiesPanel } from './components/PropertiesPanel';
 import { Timeline } from './components/Timeline';
 import { TopBar } from './components/TopBar';
 import { UnsupportedNotice } from './components/UnsupportedNotice';
+import { LIMITS, RENDER } from './config';
+import { isEditableTarget } from './lib/keyboard';
 import { useAppStore } from './store/useAppStore';
 
 export default function App() {
@@ -14,10 +16,19 @@ export default function App() {
   const objectUrlRef = useRef<string | null>(state.objectUrl);
   const [projectName, setProjectName] = useState('Video-footage');
   const [playhead, setPlayhead] = useState(0);
+  const playheadRef = useRef(0);
+  const seekVideoRef = useRef<((time: number) => void) | null>(null);
+  const registerSeek = useCallback((fn: ((time: number) => void) | null): void => {
+    seekVideoRef.current = fn;
+  }, []);
 
   useEffect(() => {
     objectUrlRef.current = state.objectUrl;
   }, [state.objectUrl]);
+
+  useEffect(() => {
+    playheadRef.current = playhead;
+  }, [playhead]);
 
   useEffect(() => {
     state.initialize();
@@ -53,7 +64,63 @@ export default function App() {
     };
   }, [isAnalyzing, isRendering, flushSaves, handleVisibilityChange]);
 
+  // Editing shortcuts are global; they are ignored while the user is typing.
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (isEditableTarget(event.target)) return;
+      const store = useAppStore.getState();
+      if (store.isAnalyzing || store.isRendering) return;
+      const key = event.key.toLowerCase();
+      const mod = event.ctrlKey || event.metaKey;
+      const id = store.selectedClipId;
+      const clip = store.clips.find((item) => item.id === id);
+      const round = (value: number): number => Math.round(value * RENDER.frameRate) / RENDER.frameRate;
+
+      if (mod && key === 'z') {
+        event.preventDefault();
+        if (event.shiftKey) store.redo();
+        else store.undo();
+        return;
+      }
+      if (mod && key === 'y') {
+        event.preventDefault();
+        store.redo();
+        return;
+      }
+      if (!id || !clip) return;
+
+      if (mod && key === 'd') {
+        event.preventDefault();
+        store.duplicateClip(id);
+      } else if (!mod && (event.key === 'Delete' || event.key === 'Backspace')) {
+        event.preventDefault();
+        store.deleteClip(id);
+      } else if (!mod && (key === 's' || key === 'x')) {
+        event.preventDefault();
+        // Frame-accurate cut: always land exactly on the displayed frame boundary.
+        const frame = Math.round(playheadRef.current * RENDER.frameRate);
+        store.splitClip(id, frame / RENDER.frameRate);
+      } else if (!mod && key === 'i') {
+        event.preventDefault();
+        const at = round(Math.min(Math.max(0, clip.end - LIMITS.minClipSec), Math.max(0, playheadRef.current)));
+        if (at > clip.start + 0.1) store.updateClip(id, { start: at });
+      } else if (!mod && key === 'o') {
+        event.preventDefault();
+        const max = store.meta?.durationSec ?? clip.end;
+        const at = round(Math.min(max, Math.max(clip.start + LIMITS.minClipSec, playheadRef.current)));
+        if (at < clip.end - 0.1) store.updateClip(id, { end: at });
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
+
   const selectedClip = state.clips.find((clip) => clip.id === state.selectedClipId) ?? null;
+  const cutAtFrame = (): void => {
+    if (!selectedClip) return;
+    const frame = Math.round(playhead * RENDER.frameRate);
+    state.splitClip(selectedClip.id, frame / RENDER.frameRate);
+  };
   const selectedCount = state.selectedClipIds.length;
   // Unticking clips never blocks export: the active clip (or all clips) is used.
   const exportCount = selectedCount > 0 ? selectedCount : selectedClip ? 1 : state.clips.length;
@@ -70,6 +137,10 @@ export default function App() {
           exportLabel={exportLabel}
           isExporting={isRendering}
           canExport={!isRendering && exportCount > 0}
+          canUndo={!isRendering && !isAnalyzing && state.past.length > 0}
+          canRedo={!isRendering && !isAnalyzing && state.future.length > 0}
+          onUndo={state.undo}
+          onRedo={state.redo}
           onCancel={state.cancelRender}
           theme={state.theme}
           onToggleTheme={() => state.setTheme(state.theme === 'dark' ? 'light' : 'dark')}
@@ -115,9 +186,9 @@ export default function App() {
               />
             </div>
           ) : (
-            <div className="flex min-h-0 flex-1 flex-col gap-1.5 md:flex-row">
-              <div className="flex min-h-0 flex-1 flex-col gap-1.5 md:flex-[1.75]">
-                <div className="flex min-h-[280px] flex-1 flex-col md:min-h-0 md:flex-[1.6]">
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-1.5 md:flex-row">
+              <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-1.5 md:flex-[1.75]">
+                <div className="flex min-h-[280px] min-w-0 flex-1 flex-col md:min-h-0 md:flex-[1.6]">
                   {selectedClip && state.meta && state.objectUrl ? (
                     <PreviewPane
                       clip={selectedClip}
@@ -126,6 +197,9 @@ export default function App() {
                       transcriptWords={state.transcript?.words ?? selectedClip.words}
                       onUpdate={(patch) => state.updateClip(selectedClip.id, patch)}
                       onTimeChange={setPlayhead}
+                      registerSeek={registerSeek}
+                      onCutAtFrame={cutAtFrame}
+                      canCut={playhead > selectedClip.start && playhead < selectedClip.end}
                     />
                   ) : (
                     <div className="panel flex items-center justify-center text-sm muted">Select a clip to preview it.</div>
@@ -133,16 +207,26 @@ export default function App() {
                 </div>
 
                 {selectedClip && state.meta ? (
-                  <div className="flex min-h-[180px] flex-1 flex-col md:min-h-0 md:flex-1">
+                  <div className="flex min-h-[180px] min-w-0 flex-1 flex-col md:min-h-0 md:flex-1">
                     <Timeline
                       clips={state.clips}
                       clip={selectedClip}
                       meta={state.meta}
                       playhead={playhead}
                       selectedIds={state.selectedClipIds}
+                      filmstrip={state.filmstrip}
                       onSelect={state.selectClip}
                       onToggle={state.toggleSelected}
                       onUpdate={(patch) => state.updateClip(selectedClip.id, patch)}
+                      onSplit={() => state.splitClip(selectedClip.id, playhead)}
+                      onDuplicate={() => state.duplicateClip(selectedClip.id)}
+                      onDelete={() => state.deleteClip(selectedClip.id)}
+                      onRemoveSilences={() => state.removeSilences(selectedClip.id)}
+                      onSeek={(time: number) => {
+                        const at = Math.round(time * RENDER.frameRate) / RENDER.frameRate;
+                        setPlayhead(at);
+                        seekVideoRef.current?.(at);
+                      }}
                     />
                   </div>
                 ) : null}

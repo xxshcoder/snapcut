@@ -1,8 +1,11 @@
-import { useEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
 import { CropBox } from './CropBox';
 import { Icon, type IconName } from './Icon';
+import { RENDER } from '../config';
+import { isEditableTarget } from '../lib/keyboard';
 import { centeredCrop, cropAtTime, cropToPixels, normalizeCrop } from '../lib/render/crop';
 import { drawCaptions } from '../lib/render/captions';
+import { clipSpeed } from '../lib/render/clipOptions';
 import type { CaptionStyleId, Clip, FileMeta, Word } from '../types';
 
 type Props = {
@@ -12,16 +15,22 @@ type Props = {
   transcriptWords: Word[];
   onUpdate: (patch: Partial<Clip>) => void;
   onTimeChange: (time: number) => void;
+  /** Lets the timeline playhead seek the real video element. */
+  registerSeek?: (fn: ((time: number) => void) | null) => void;
+  onCutAtFrame: () => void;
+  canCut: boolean;
 };
 
 const PREVIEW_WIDTH = 540;
 const PREVIEW_HEIGHT = 960;
-const TICKS = 28;
+const TICKS = 12;
 
 type VideoBox = { left: number; top: number; width: number; height: number };
 type RailDrag = { pointerId: number; startY: number; startTop: number };
 
 const clamp = (value: number, min: number, max: number): number => Math.min(max, Math.max(min, value));
+/** Every seek lands on a real frame boundary so the cut point is unambiguous. */
+const frameTime = (time: number): number => Math.round(time * RENDER.frameRate) / RENDER.frameRate;
 
 /** Only tools that change the actual edit are shown — no decorative buttons. */
 type ToolId = 'crop' | 'text';
@@ -41,8 +50,19 @@ function clock(value: number): string {
   return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
 }
 
-export function PreviewPane({ clip, meta, objectUrl, transcriptWords, onUpdate, onTimeChange }: Props) {
+export function PreviewPane({
+  clip,
+  meta,
+  objectUrl,
+  transcriptWords,
+  onUpdate,
+  onTimeChange,
+  registerSeek,
+  onCutAtFrame,
+  canCut,
+}: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const sectionRef = useRef<HTMLElement>(null);
   const surfaceRef = useRef<HTMLDivElement>(null);
   const previewRef = useRef<HTMLCanvasElement>(null);
   const frameRef = useRef<number | null>(null);
@@ -52,9 +72,14 @@ export function PreviewPane({ clip, meta, objectUrl, transcriptWords, onUpdate, 
   const [activeTool, setActiveTool] = useState<ToolId>('text');
   const [playhead, setPlayhead] = useState(clip.start);
   const [playing, setPlaying] = useState(false);
-  const [speed, setSpeed] = useState(1);
+  const speed = clipSpeed(clip);
+  const [audition, setAudition] = useState(false);
+  const [expandedExport, setExpandedExport] = useState(false);
   const [videoBox, setVideoBox] = useState<VideoBox>({ left: 0, top: 0, width: 0, height: 0 });
   const timeChangeRef = useRef(onTimeChange);
+  const togglePlayRef = useRef<() => void>(() => undefined);
+  const seekByRef = useRef<(delta: number) => void>(() => undefined);
+  const seekToRef = useRef<(time: number) => void>(() => undefined);
   useEffect(() => {
     timeChangeRef.current = onTimeChange;
   }, [onTimeChange]);
@@ -93,6 +118,18 @@ export function PreviewPane({ clip, meta, objectUrl, transcriptWords, onUpdate, 
       video.removeEventListener('pause', onPause);
     };
   }, [clip.start, clip.end, objectUrl]);
+
+  // The speed control is part of the clip, so preview and export never disagree.
+  useEffect(() => {
+    const video = videoRef.current;
+    if (video) video.playbackRate = speed;
+  }, [speed]);
+
+  // `volume` is not a React DOM attribute; set it on the element directly.
+  useEffect(() => {
+    const video = videoRef.current;
+    if (video) video.volume = Math.min(1, Math.max(0, clip.volume ?? 1));
+  }, [clip.volume]);
 
   // Measure the displayed video rectangle so the crop overlay stays aligned.
   useEffect(() => {
@@ -149,10 +186,11 @@ export function PreviewPane({ clip, meta, objectUrl, transcriptWords, onUpdate, 
         drawCaptions(
           ctx,
           clip.words,
-          Math.max(0, video.currentTime - clip.start),
+          video.currentTime,
           PREVIEW_WIDTH,
           PREVIEW_HEIGHT,
           clip.captionStyle,
+          clip.captionLayout,
         );
       }
       frameRef.current = requestAnimationFrame(draw);
@@ -161,35 +199,98 @@ export function PreviewPane({ clip, meta, objectUrl, transcriptWords, onUpdate, 
     return () => {
       if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
     };
-  }, [clip.captionsEnabled, clip.captionStyle, clip.crop, clip.words, clip.start, meta.width, meta.height]);
+  }, [clip.captionsEnabled, clip.captionStyle, clip.captionLayout, clip.crop, clip.words, meta.width, meta.height]);
 
-  const togglePlay = (): void => {
+  const togglePlay = useCallback((): void => {
     const video = videoRef.current;
     if (!video) return;
     if (video.paused) void video.play().catch(() => undefined);
     else video.pause();
-  };
+  }, []);
 
-  const seekBy = (delta: number): void => {
-    const video = videoRef.current;
-    if (!video) return;
-    video.currentTime = Math.max(clip.start, Math.min(clip.end, video.currentTime + delta));
-    setPlayhead(video.currentTime);
-    timeChangeRef.current(video.currentTime);
-  };
+  const seekBy = useCallback(
+    (delta: number): void => {
+      const video = videoRef.current;
+      if (!video) return;
+      video.currentTime = frameTime(clamp(video.currentTime + delta, clip.start, clip.end));
+      setPlayhead(video.currentTime);
+      timeChangeRef.current(video.currentTime);
+    },
+    [clip.start, clip.end],
+  );
 
-  const seekTo = (time: number): void => {
-    const video = videoRef.current;
-    if (!video) return;
-    video.currentTime = Math.max(clip.start, Math.min(clip.end, time));
-    setPlayhead(video.currentTime);
-    timeChangeRef.current(video.currentTime);
-  };
+  const seekTo = useCallback(
+    (time: number): void => {
+      const video = videoRef.current;
+      if (!video) return;
+      video.currentTime = frameTime(clamp(time, clip.start, clip.end));
+      setPlayhead(video.currentTime);
+      timeChangeRef.current(video.currentTime);
+    },
+    [clip.start, clip.end],
+  );
+
+  useEffect(() => {
+    togglePlayRef.current = togglePlay;
+    seekByRef.current = seekBy;
+    seekToRef.current = seekTo;
+  }, [togglePlay, seekBy, seekTo]);
+
+  useEffect(() => {
+    registerSeek?.(seekTo);
+    return () => registerSeek?.(null);
+  }, [registerSeek, seekTo]);
+
+  // Playback shortcuts mirror the visible rail; they never steal keystrokes from fields.
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (isEditableTarget(event.target)) return;
+      const video = videoRef.current;
+      if (!video) return;
+      const key = event.key.toLowerCase();
+      if (event.code === 'Space') {
+        event.preventDefault();
+        togglePlayRef.current();
+      } else if (event.key === 'ArrowLeft') {
+        event.preventDefault();
+        seekByRef.current(event.shiftKey ? -1 : -1 / RENDER.frameRate);
+      } else if (event.key === 'ArrowRight') {
+        event.preventDefault();
+        seekByRef.current(event.shiftKey ? 1 : 1 / RENDER.frameRate);
+      } else if (key === 'j') {
+        event.preventDefault();
+        seekByRef.current(-1);
+      } else if (key === 'k') {
+        event.preventDefault();
+        video.pause();
+      } else if (key === 'l') {
+        event.preventDefault();
+        if (video.paused) void video.play().catch(() => undefined);
+      } else if (key === 'f') {
+        event.preventDefault();
+        if (document.fullscreenElement) {
+          void document.exitFullscreen().catch(() => undefined);
+        } else if (sectionRef.current) {
+          void sectionRef.current.requestFullscreen().catch(() => undefined);
+        }
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
 
   const cycleSpeed = (): void => {
-    const next = speed === 1 ? 1.2 : speed === 1.2 ? 1.5 : 1;
-    setSpeed(next);
+    const next = speed === 1 ? 1.25 : speed === 1.25 ? 1.5 : speed === 1.5 ? 0.75 : 1;
+    onUpdate({ speed: next });
     if (videoRef.current) videoRef.current.playbackRate = next;
+  };
+
+  const toggleFullscreen = (): void => {
+    if (document.fullscreenElement) {
+      void document.exitFullscreen().catch(() => undefined);
+    } else if (sectionRef.current) {
+      void sectionRef.current.requestFullscreen().catch(() => undefined);
+    }
   };
 
   const centerCrop = (): void => {
@@ -259,29 +360,50 @@ export function PreviewPane({ clip, meta, objectUrl, transcriptWords, onUpdate, 
   const railStyle: CSSProperties = { top: railTop ?? 12 };
 
   const range = Math.max(0.001, clip.end - clip.start);
+  const frameNumber = Math.round(playhead * RENDER.frameRate);
   const currentTick = Math.round(((playhead - clip.start) / range) * (TICKS - 1));
   const activeWord = transcriptWords.find((word) => playhead >= word.start && playhead <= word.end);
   const overlayText = clip.captionsEnabled ? (activeWord?.text ?? clip.words[0]?.text ?? 'Sa') : 'Sa';
 
   return (
-    <section className="panel relative flex min-h-0 flex-1 flex-col overflow-hidden" aria-label="Video preview">
+    <section ref={sectionRef} className="panel relative flex min-h-0 flex-1 flex-col overflow-hidden" aria-label="Video preview">
       <div ref={surfaceRef} className="relative min-h-0 flex-1 overflow-hidden bg-black">
         <video
           ref={videoRef}
           src={objectUrl}
           className="absolute inset-0 h-full w-full object-contain"
           playsInline
-          muted
+          muted={!audition || clip.muted === true}
           aria-label="Source video preview"
           onClick={togglePlay}
         />
 
-        {/* 9:16 export preview inset — WYSIWYG of the final output */}
-        <div className="absolute left-4 top-4 z-10 w-[74px] overflow-hidden rounded-xl border-2 border-white/50 bg-black shadow-[0_8px_24px_rgba(0,0,0,0.55)] ring-1 ring-black/40">
-          <canvas ref={previewRef} width={PREVIEW_WIDTH} height={PREVIEW_HEIGHT} className="block h-full w-full" aria-label="Export preview with crop and captions" />
+        {/* 9:16 export preview inset — WYSIWYG of the final output, expandable for real inspection. */}
+        <div
+          className={
+            expandedExport
+              ? 'absolute inset-4 z-30 flex flex-col items-center justify-center gap-2 rounded-2xl border border-white/20 bg-black/92 p-3 shadow-2xl backdrop-blur'
+              : 'absolute left-4 top-4 z-10 w-[74px] overflow-hidden rounded-xl border-2 border-white/50 bg-black shadow-[0_8px_24px_rgba(0,0,0,0.55)] ring-1 ring-black/40'
+          }
+        >
+          <canvas
+            ref={previewRef}
+            width={PREVIEW_WIDTH}
+            height={PREVIEW_HEIGHT}
+            className={expandedExport ? 'block max-h-[calc(100%-2rem)] w-auto max-w-full rounded-lg' : 'block h-full w-full'}
+            aria-label="Export preview with crop and captions"
+          />
           <span className="absolute bottom-0 left-0 right-0 bg-black/70 py-0.5 text-center text-[9px] font-bold tracking-wider text-white">
             9:16
           </span>
+          <button
+            className="icon-btn absolute right-1 top-1 h-6 w-6 border-transparent bg-black/70 text-[10px]"
+            onClick={() => setExpandedExport(!expandedExport)}
+            aria-label={expandedExport ? 'Collapse export preview' : 'Expand export preview'}
+            title={expandedExport ? 'Collapse export preview' : 'Inspect the exact 9:16 export'}
+          >
+            <Icon name={expandedExport ? 'close' : 'expand'} size={14} />
+          </button>
         </div>
 
         {/* Crop overlay — only while the crop tool is active */}
@@ -400,37 +522,13 @@ export function PreviewPane({ clip, meta, objectUrl, transcriptWords, onUpdate, 
                 <Icon name={action.icon} size={20} />
               </button>
             ))}
-            <button
-              className="mx-auto flex h-11 w-11 items-center justify-center rounded-2xl border-2 border-transparent text-white/80 transition-colors hover:bg-white/10"
-              onClick={togglePlay}
-              aria-label="Play / pause"
-              title="Play / pause"
-            >
-              <Icon name={playing ? 'pause' : 'play'} size={20} />
-            </button>
-            <button
-              className="mx-auto flex h-11 w-11 items-center justify-center rounded-2xl border-2 border-transparent text-white/80 transition-colors hover:bg-white/10"
-              onClick={() => seekBy(-15)}
-              aria-label="Skip back 15s"
-              title="Skip back 15s"
-            >
-              <Icon name="back" size={20} />
-            </button>
-            <button
-              className="mx-auto flex h-11 w-11 items-center justify-center rounded-2xl border-2 border-transparent text-white/80 transition-colors hover:bg-white/10"
-              onClick={() => seekBy(15)}
-              aria-label="Skip forward 15s"
-              title="Skip forward 15s"
-            >
-              <Icon name="forward" size={20} />
-            </button>
           </div>
         </div>
 
         {/* Playback bar — the main control surface, kept on one tidy row. */}
         <div className="absolute inset-x-3 bottom-3 z-20 rounded-[26px] border border-white/10 bg-black/65 px-3 py-2.5 shadow-2xl backdrop-blur-xl sm:px-4">
-          <div className="flex items-center gap-2">
-            <div className="flex shrink-0 items-center gap-1">
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <div className="flex shrink-0 items-center gap-0.5 sm:gap-1">
               <button
                 className="icon-btn h-10 w-10 min-w-10 border-transparent"
                 onClick={() => seekBy(-15)}
@@ -440,12 +538,28 @@ export function PreviewPane({ clip, meta, objectUrl, transcriptWords, onUpdate, 
                 <Icon name="back" size={18} />
               </button>
               <button
+                className="icon-btn hidden h-9 w-9 min-w-9 border-transparent sm:flex"
+                onClick={() => seekBy(-1 / RENDER.frameRate)}
+                aria-label="Previous frame"
+                title="Previous frame (←)"
+              >
+                <Icon name="frameBack" size={17} />
+              </button>
+              <button
                 className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[var(--accent)] text-white shadow-lg shadow-black/40 transition-transform hover:scale-105 active:scale-95"
                 onClick={togglePlay}
                 aria-label={playing ? 'Pause' : 'Play'}
                 title={playing ? 'Pause' : 'Play'}
               >
                 <Icon name={playing ? 'pause' : 'play'} size={24} />
+              </button>
+              <button
+                className="icon-btn hidden h-9 w-9 min-w-9 border-transparent sm:flex"
+                onClick={() => seekBy(1 / RENDER.frameRate)}
+                aria-label="Next frame"
+                title="Next frame (→)"
+              >
+                <Icon name="frameForward" size={17} />
               </button>
               <button
                 className="icon-btn h-10 w-10 min-w-10 border-transparent"
@@ -458,32 +572,52 @@ export function PreviewPane({ clip, meta, objectUrl, transcriptWords, onUpdate, 
             </div>
 
             <button
+              className="icon-btn h-9 w-9 min-w-9 shrink-0 border-transparent"
+              onClick={() => setAudition(!audition)}
+              aria-label={audition ? 'Mute preview' : 'Audition audio'}
+              title={audition ? 'Mute preview audio' : `Listen at ${Math.round((clip.volume ?? 1) * 100)}%`}
+            >
+              <Icon name={audition && !clip.muted ? 'volume' : 'volumeOff'} size={17} />
+            </button>
+
+            <button
               className="shrink-0 rounded-full border border-white/15 bg-white/5 px-2 py-1 text-[11px] font-bold tabular-nums text-white/80 transition-colors hover:bg-white/15"
               onClick={cycleSpeed}
               aria-label="Playback speed"
-              title="Playback speed"
+              title={`Clip speed ${speed}× — also changes the exported duration`}
             >
               {speed}×
             </button>
 
-            {/* Scrub strip: the played portion is filled, the playhead is highlighted. */}
+            <button
+              className="icon-btn h-9 w-9 min-w-9 shrink-0 border-transparent"
+              onClick={onCutAtFrame}
+              disabled={!canCut}
+              aria-label="Cut at frame"
+              title={`Split exactly at frame ${frameNumber} (X)`}
+            >
+              <Icon name="scissors" size={17} />
+            </button>
+
+            {/* Scrub strip: fewer, wider ticks with unique labels; ends mark the clip in/out. */}
             <div className="flex min-w-0 flex-1 items-end gap-[2px] px-1">
               {Array.from({ length: TICKS }, (_, index) => {
-                const tickTime = clip.start + (index / (TICKS - 1)) * range;
+                const tickTime = frameTime(clip.start + (index / (TICKS - 1)) * range);
                 const played = tickTime <= playhead;
                 const current = index === currentTick;
+                const edge = index === 0 || index === TICKS - 1;
                 return (
                   <button
                     key={index}
-                    className="flex min-w-0 flex-1 flex-col items-center justify-end gap-1 py-1"
+                    className="flex min-w-0 flex-1 flex-col items-center justify-end py-1"
                     onClick={() => seekTo(tickTime)}
-                    aria-label={`Seek to ${clock(tickTime)}`}
-                    title={clock(tickTime)}
+                    aria-label={`Seek to ${tickTime.toFixed(1)}s`}
+                    title={`${tickTime.toFixed(1)}s`}
                   >
                     <span
                       className={`w-full rounded-full transition-all ${
                         played ? 'bg-[var(--accent)]' : 'bg-white/20'
-                      } ${current ? 'h-4' : 'h-2'}`}
+                      } ${current ? 'h-4' : 'h-2'} ${edge ? 'ring-1 ring-white/70' : ''}`}
                     />
                   </button>
                 );
@@ -491,8 +625,18 @@ export function PreviewPane({ clip, meta, objectUrl, transcriptWords, onUpdate, 
             </div>
 
             <div className="shrink-0 rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-semibold tabular-nums text-white">
+              <span className="text-[var(--accent)]">F{String(frameNumber).padStart(5, '0')}</span>{' '}
               {clock(playhead)} <span className="text-white/50">/ {clock(clip.end - clip.start)}</span>
             </div>
+
+            <button
+              className="icon-btn hidden h-9 w-9 min-w-9 shrink-0 border-transparent sm:flex"
+              onClick={toggleFullscreen}
+              aria-label="Fullscreen preview"
+              title="Fullscreen preview (F)"
+            >
+              <Icon name="fullscreen" size={17} />
+            </button>
           </div>
         </div>
       </div>

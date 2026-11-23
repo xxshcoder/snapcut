@@ -139,6 +139,20 @@ textarea:focus-visible,
   cursor: pointer;
 }
 
+@utility edit-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
 @utility field {
   width: 100%;
   min-height: 44px;
@@ -165,6 +179,16 @@ textarea:focus-visible,
 
 .icon-btn:hover {
   background: var(--chip);
+}
+
+.edit-icon-btn:hover:not(:disabled) {
+  background: var(--chip);
+  color: var(--text);
+}
+
+.edit-icon-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
 }
 
 .field::placeholder {

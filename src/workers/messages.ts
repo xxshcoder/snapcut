@@ -14,6 +14,10 @@ export type TrackRequest =
   | { type: 'start'; id: number; file: File; start: number; end: number }
   | { type: 'cancel'; id: number };
 
+export type FilmstripRequest =
+  | { type: 'start'; id: number; file: File; start: number; end: number; count?: number }
+  | { type: 'cancel'; id: number };
+
 export type WorkerResponse =
   | { type: 'progress'; id: number; percent: number; phase: string }
   | { type: 'done'; id: number; result: unknown }
@@ -25,6 +29,8 @@ export type AudioWorkerResult = {
 };
 
 export type TrackWorkerResult = { crop: CropPath; facesFound: number };
+
+export type FilmstripWorkerResult = { timeSec: number; blob: Blob }[];
 
 /** Functions cannot be structured-cloned, so cleanup is requested separately. */
 export type RenderWorkerResult = {
